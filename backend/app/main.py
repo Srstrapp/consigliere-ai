@@ -34,16 +34,17 @@ async def lifespan(app: FastAPI):
     if settings.telegram_bot_token:
         try:
             railway_url = os.getenv('RAILWAY_STATIC_URL')
+            logger.info(f"🔍 RAILWAY_STATIC_URL: {railway_url}")
             
             from telegram import Bot
             from telegram.error import TelegramError
             
             if railway_url:
-                # Railway: usar webhook
+                # Railway: usar webhook - NO iniciar polling nunca
                 webhook_url = f"https://{railway_url}/webhook/telegram"
                 bot = Bot(token=settings.telegram_bot_token)
                 
-                # Primero eliminar cualquier webhook anterior para evitar conflictos
+                # Eliminar cualquier webhook anterior
                 try:
                     await bot.delete_webhook()
                     logger.info("🗑️ Webhook anterior eliminado")
@@ -52,6 +53,7 @@ async def lifespan(app: FastAPI):
                 
                 await bot.set_webhook(url=webhook_url)
                 logger.info(f"✅ Telegram webhook configurado: {webhook_url}")
+                logger.info("⚠️ No se inicia polling en Railway (solo webhook)")
             else:
                 # Local: usar polling
                 from .services.telegram import create_bot_application
