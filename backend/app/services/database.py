@@ -50,7 +50,7 @@ class UserRepository:
         result = client.table("users").insert({
             "telegram_id": telegram_id,
             "nombre": nombre,
-            "presupuesto_mensual": 1000.00  # Default presupuesto
+            "presupuesto_mensual": 0  # Default - el bot preguntará al usuario
         }).execute()
         return result.data[0]
     
@@ -62,6 +62,27 @@ class UserRepository:
             "presupuesto_mensual": presupuesto
         }).eq("id", user_id).execute()
         return result.data[0] if result.data else None
+    
+    @staticmethod
+    def set_mensaje_pendiente(user_id: str, mensaje: str) -> None:
+        """Guardar mensaje pendiente por procesar después de configurar presupuesto"""
+        client = SupabaseClient.get_instance()
+        client.table("users").update({
+            "mensaje_pendiente": mensaje
+        }).eq("id", user_id).execute()
+    
+    @staticmethod
+    def get_mensaje_pendiente(user_id: str) -> Optional[str]:
+        """Obtener y borrar mensaje pendiente"""
+        client = SupabaseClient.get_instance()
+        result = client.table("users").select("mensaje_pendiente").eq("id", user_id).execute()
+        if result.data and result.data[0].get("mensaje_pendiente"):
+            # Limpiar el mensaje pendiente después de obtenerlo
+            client.table("users").update({
+                "mensaje_pendiente": None
+            }).eq("id", user_id).execute()
+            return result.data[0]["mensaje_pendiente"]
+        return None
     
     @staticmethod
     def get_by_whatsapp(phone: str) -> Optional[Dict]:
@@ -84,7 +105,7 @@ class UserRepository:
         result = client.table("users").insert({
             "whatsapp_phone": phone,
             "nombre": nombre,
-            "presupuesto_mensual": 1000.00  # Default presupuesto
+            "presupuesto_mensual": 0  # Default - el bot preguntará al usuario
         }).execute()
         return result.data[0]
 

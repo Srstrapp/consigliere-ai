@@ -301,6 +301,16 @@ class MessageRouter:
         if not db_user:
             db_user = UserRepository.create(user.id, user.first_name)
         
+        # 1.5. Si presupuesto = 0, preguntar presupuesto y guardar mensaje para procesar después
+        if db_user.get("presupuesto_mensual", 0) == 0:
+            # Guardar el mensaje original para procesar después
+            UserRepository.set_mensaje_pendiente(db_user["id"], mensaje)
+            await update.message.reply_text(
+                "👋 ¡Hola! Primero necesito saber tu presupuesto mensual.\n\n"
+                "¿Cuál es tu presupuesto mensual? (ej: 2000)"
+            )
+            return
+        
         # 2. Detectar intención (usa TOML)
         try:
             intención = self._ia_service.detectar_intención(mensaje).intencion
@@ -416,12 +426,38 @@ class MessageRouter:
             nuevo_presupuesto = float(numeros[0])
             UserRepository.update_presupuesto(db_user["id"], nuevo_presupuesto)
             
-            await update.message.reply_text(
-                f"✅ *Presupuesto actualizado!*\n\n"
-                f"Nuevo presupuesto mensual: ${nuevo_presupuesto:.2f}\n\n"
-                f"Quieres ver el estado actual? Escribí /presupuesto",
-                parse_mode="Markdown"
-            )
+            # Verificar si hay un mensaje pendiente por procesar
+            mensaje_pendiente = UserRepository.get_mensaje_pendiente(db_user["id"])
+            
+            if mensaje_pendiente:
+                # Procesar el mensaje pendiente
+                await update.message.reply_text(
+                    f"✅ *Presupuesto configurado: ${nuevo_presupuesto:.2f}*\n\n"
+                    f"📝 Procesando tu mensaje anterior...",
+                    parse_mode="Markdown"
+                )
+                # Reprocesar el mensaje pendiente (llamada recursiva al process)
+                # Obtener intención del mensaje pendiente
+                try:
+                    intención_pendiente = self._ia_service.detectar_intención(mensaje_pendiente).intencion
+                except:
+                    intención_pendiente = "general"
+                
+                # Obtener contexto
+                dominio = INTENCION_A_DOMINIO.get(intención_pendiente, "general")
+                conv_result = ConversationRepository.get_by_dominio(db_user["id"], dominio)
+                contexto = conv_result["messages"] if conv_result else []
+                
+                # Ejecutar handler
+                handler = self._handlers.get(intención_pendiente, self._handlers["general"])
+                await handler(update, mensaje_pendiente, db_user, dominio=dominio, contexto=contexto)
+            else:
+                await update.message.reply_text(
+                    f"✅ *Presupuesto actualizado!*\n\n"
+                    f"Nuevo presupuesto mensual: ${nuevo_presupuesto:.2f}\n\n"
+                    f"Quieres ver el estado actual? Escribí /presupuesto",
+                    parse_mode="Markdown"
+                )
         else:
             await update.message.reply_text(
                 "No encontré un número en tu mensaje. "
