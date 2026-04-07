@@ -12,7 +12,6 @@ import os
 
 from .config import get_settings
 from .services.database import UserRepository, ExpenseRepository, GoalRepository
-from .services.telegram import create_bot_application
 from .services.whatsapp import WhatsAppMessageParser, WhatsAppServiceFactory, WhatsAppError
 
 
@@ -31,27 +30,10 @@ async def lifespan(app: FastAPI):
     """Lifecycle - iniciar/stop servicios externos"""
     global bot_app, whatsapp_service
     
-    # Configurar Telegram como Webhook (no polling) para evitar conflictos
-    if settings.telegram_bot_token:
-        try:
-            from telegram import Bot
-            from telegram.error import TelegramError
-            
-            bot = Bot(token=settings.telegram_bot_token)
-            
-            # Set webhook - Railway da una URL dinámica
-            webhook_url = f"{os.getenv('RAILWAY_STATIC_URL', 'https://consigliere.up.railway.app')}/webhook/telegram"
-            
-            try:
-                await bot.set_webhook(url=webhook_url)
-                logger.info(f"✅ Telegram webhook configurado: {webhook_url}")
-            except TelegramError as e:
-                logger.warning(f"⚠️ Error configurando webhook: {e}")
-            
-            logger.info("✅ Telegram Bot configurado con webhook")
-            
-        except Exception as e:
-            logger.warning(f"⚠️ Telegram Bot no iniciado: {e}")
+    # TELEGRAM DESHABILITADO PARA RAILWAY - usar webhook manualmente
+    # Para evitar conflictos de polling
+    logger.info("⚠️ Telegram en modo solo webhook (sin polling)")
+    logger.info("⚠️ Para activarlo, configurá el webhook en Telegram API")
     
     # Iniciar WhatsApp (Evolution API)
     if settings.whatsapp_api_url and settings.whatsapp_api_key:
