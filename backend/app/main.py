@@ -219,8 +219,8 @@ async def evolution_bot(payload: dict):
         logger.info(f"📱 Evolution Bot [{phone}]: {mensaje_texto[:50]}")
         
         # Procesar con IA (mismo flujo que WhatsApp webhook)
-        from backend.app.services.deepseek import AIServiceFactory, IAResponseError
-        from backend.app.services.database import UserRepository, ConversationRepository
+        from app.services.deepseek import AIServiceFactory, IAResponseError
+        from app.services.database import UserRepository, ConversationRepository
         
         ia_service = AIServiceFactory.get_service()
         
@@ -231,7 +231,7 @@ async def evolution_bot(payload: dict):
             intención = "general"
         
         # Mapping intención a dominio
-        from backend.app.services.telegram import INTENCION_A_DOMINIO
+        from app.services.telegram import INTENCION_A_DOMINIO
         dominio = INTENCION_A_DOMINIO.get(intención, "general")
         
         # Obtener o crear usuario
@@ -240,16 +240,16 @@ async def evolution_bot(payload: dict):
             db_user = UserRepository.create_by_phone(phone, push_name)
         
         # Obtener contexto filtrado por dominio
-        from backend.app.services.database import ConversationRepository as ConvRepo
+        from app.services.database import ConversationRepository as ConvRepo
         conv = ConvRepo.get_by_dominio(db_user["id"], dominio)
         contexto = conv["messages"] if conv else []
         
         # Procesar según intención
         if intención == "gasto":
-            from backend.app.services.deepseek import GastoData
+            from app.services.deepseek import GastoData
             datos: GastoData = ia_service.analizar(mensaje_texto)
             if datos.monto > 0:
-                from backend.app.services.database import ExpenseRepository
+                from app.services.database import ExpenseRepository
                 ExpenseRepository.create(db_user["id"], datos.monto, datos.categoria, datos.desc or mensaje_texto)
                 respuesta = f"✅ *Gasto registrado:*\n\n💰 ${datos.monto:.2f}\n📂 {datos.categoria}"
             else:
@@ -260,7 +260,7 @@ async def evolution_bot(payload: dict):
             if monto_match:
                 monto = float(monto_match.group(1))
                 nombre = mensaje_texto.replace(monto_match.group(1), "").strip()[:50] or "Mi meta"
-                from backend.app.services.database import GoalRepository
+                from app.services.database import GoalRepository
                 GoalRepository.create(db_user["id"], nombre, monto)
                 respuesta = f"🎯 *Meta creada!*\n\nObjetivo: {nombre}\nMonto: ${monto:.2f}"
             else:
@@ -338,7 +338,7 @@ async def whatsapp_webhook(payload: dict):
             return {"status": "ignored"}
         
         # Importar el MessageRouter y procesar
-        from backend.app.services.telegram import MessageRouter, PlatformMessage
+        from app.services.telegram import MessageRouter, PlatformMessage
         
         # Crear mensaje abstracto
         platform_msg = PlatformMessage(
@@ -353,12 +353,12 @@ async def whatsapp_webhook(payload: dict):
         router = MessageRouter()
         
         # Crear un handler que-use el WhatsApp service para responder
-        from backend.app.services.whatsapp import WhatsAppServiceFactory
+        from app.services.whatsapp import WhatsAppServiceFactory
         wa_service = WhatsAppServiceFactory.get_service()
         
         # Procesar intención
         try:
-            from backend.app.services.deepseek import AIServiceFactory, IAResponseError
+            from app.services.deepseek import AIServiceFactory, IAResponseError
             ia_service = AIServiceFactory.get_service()
             intención = ia_service.detectar_intención(message["content"]).intencion
         except IAResponseError:
@@ -369,7 +369,7 @@ async def whatsapp_webhook(payload: dict):
         db_user = None
         if intención in ["gasto", "meta", "presupuesto"]:
             # Necesitamos usuario en DB
-            from backend.app.services.database import UserRepository
+            from app.services.database import UserRepository
             db_user = UserRepository.get_by_whatsapp(message["phone"])
             if not db_user:
                 db_user = UserRepository.create_by_phone(
@@ -379,10 +379,10 @@ async def whatsapp_webhook(payload: dict):
         
         # Ejecutar el handler
         if intención == "gasto":
-            from backend.app.services.deepseek import GastoData
+            from app.services.deepseek import GastoData
             datos: GastoData = ia_service.analizar(message["content"])
             if datos.monto > 0:
-                from backend.app.services.database import ExpenseRepository
+                from app.services.database import ExpenseRepository
                 ExpenseRepository.create(db_user["id"], datos.monto, datos.categoria, datos.desc or message["content"])
                 respuesta = f"✅ *Gasto registrado:*\n\n💰 ${datos.monto:.2f}\n📂 {datos.categoria}"
             else:
@@ -393,7 +393,7 @@ async def whatsapp_webhook(payload: dict):
             if monto_match:
                 monto = float(monto_match.group(1))
                 nombre = message["content"].replace(monto_match.group(1), "").strip()[:50] or "Mi meta"
-                from backend.app.services.database import GoalRepository
+                from app.services.database import GoalRepository
                 GoalRepository.create(db_user["id"], nombre, monto)
                 respuesta = f"🎯 *Meta creada!*\n\nObjetivo: {nombre}\nMonto: ${monto:.2f}"
             else:
@@ -402,7 +402,7 @@ async def whatsapp_webhook(payload: dict):
             respuesta = "Para ver tu presupuesto usá /presupuesto\nPara cambiarlo, escribí algo como 'Quiero poner mi presupuesto en 2000'"
         else:
             # General - usar chat de IA
-            from backend.app.services.database import ConversationRepository
+            from app.services.database import ConversationRepository
             contexto = ConversationRepository.get_last(db_user["id"] if db_user else 0)
             try:
                 respuesta = ia_service.chat(message["content"], contexto, modo="system")
