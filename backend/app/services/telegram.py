@@ -31,8 +31,35 @@ class BaseHandler(ABC):
         pass
     
     async def reply(self, update: Update, text: str, parse_mode: str = "Markdown") -> None:
-        """Helper para responder"""
-        await update.message.reply_text(text, parse_mode=parse_mode)
+        """Helper para responder - divide mensajes largos si excede 4096 caracteres"""
+        MAX_LENGTH = 4000  # Dejar margen para emojis y formato
+        
+        if len(text) <= MAX_LENGTH:
+            await update.message.reply_text(text, parse_mode=parse_mode)
+        else:
+            # Dividir en chunks
+            chunks = []
+            lines = text.split('\n')
+            current_chunk = ""
+            
+            for line in lines:
+                if len(current_chunk) + len(line) + 1 > MAX_LENGTH:
+                    if current_chunk:
+                        chunks.append(current_chunk)
+                    current_chunk = line
+                else:
+                    current_chunk += '\n' + line if current_chunk else line
+            
+            if current_chunk:
+                chunks.append(current_chunk)
+            
+            # Enviar cada chunk
+            for chunk in chunks:
+                await update.message.reply_text(chunk, parse_mode=parse_mode)
+    
+    async def _reply(self, update: Update, text: str, parse_mode: str = "Markdown") -> None:
+        """Alias de reply para usar en handlers"""
+        await self.reply(update, text, parse_mode)
     
     def get_db_user(self, telegram_id: int) -> Optional[dict]:
         """Helper para obtener usuario de DB"""
