@@ -1,12 +1,11 @@
 # Consigliere AI - Backend
-# ========================
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
-python-telegram-bot[http2]==21.6
+python-telegram-bot==20.7
 openai>=1.0.0
 httpx>=0.24.0
 pydantic>=2.0.0
 pydantic-settings>=2.0.0
 python-dotenv>=1.0.0
 psycopg2-binary>=2.9.0
-supabase>=2.0.0,<2.8.0
+supabase>=2.0.0
