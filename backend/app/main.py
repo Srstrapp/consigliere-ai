@@ -30,10 +30,33 @@ async def lifespan(app: FastAPI):
     """Lifecycle - iniciar/stop servicios externos"""
     global bot_app, whatsapp_service
     
-    # TELEGRAM DESHABILITADO PARA RAILWAY - usar webhook manualmente
-    # Para evitar conflictos de polling
-    logger.info("⚠️ Telegram en modo solo webhook (sin polling)")
-    logger.info("⚠️ Para activarlo, configurá el webhook en Telegram API")
+    # TELEGRAM - según entorno
+    if settings.telegram_bot_token:
+        try:
+            from telegram import Bot
+            from telegram.error import TelegramError
+            
+            # Si hay RAILWAY_STATIC_URL, usar webhook; si no, usar polling
+            if os.getenv('RAILWAY_STATIC_URL'):
+                # Railway: configurar webhook
+                bot = Bot(token=settings.telegram_bot_token)
+                webhook_url = f"https://{os.getenv('RAILWAY_STATIC_URL')}/webhook/telegram"
+                try:
+                    await bot.set_webhook(url=webhook_url)
+                    logger.info(f"✅ Telegram webhook configurado: {webhook_url}")
+                except TelegramError as e:
+                    logger.warning(f"⚠️ Error configurando webhook: {e}")
+            else:
+                # Local: usar polling
+                from .services.telegram import create_bot_application
+                bot_app = create_bot_application()
+                await bot_app.initialize()
+                await bot_app.start()
+                asyncio.create_task(bot_app.updater.start_polling(drop_pending_updates=True))
+                logger.info("✅ Telegram Bot iniciado (polling)")
+                
+        except Exception as e:
+            logger.warning(f"⚠️ Telegram Bot no iniciado: {e}")
     
     # Iniciar WhatsApp (Evolution API)
     if settings.whatsapp_api_url and settings.whatsapp_api_key:
@@ -49,9 +72,12 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     if bot_app:
-        await bot_app.stop()
-        await bot_app.updater.stop()
-        logger.info("🛑 Telegram Bot detenido")
+        try:
+            await bot_app.stop()
+            await bot_app.updater.stop()
+            logger.info("🛑 Telegram Bot detenido")
+        except Exception as e:
+            logger.warning(f"⚠️ Error deteniendo Telegram: {e}")
     
     if whatsapp_service:
         await whatsapp_service.close()
