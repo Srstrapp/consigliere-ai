@@ -295,7 +295,7 @@ async def evolution_bot(payload: dict):
 async def telegram_webhook(update: dict):
     """Webhook para recibir mensajes de Telegram"""
     try:
-        from telegram import Update
+        from telegram import Update, Bot
         from telegram.ext import ContextTypes
         
         # Crear objeto Update desde el payload del webhook
