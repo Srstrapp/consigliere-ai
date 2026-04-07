@@ -53,7 +53,7 @@ Tu asistente omnicanal para:
 🧠 *Metanoia* - Apoyo emocional y motivación  
 ⚖️ *Ley* - Consultas legales en lenguaje sencillo
 
-¡Escribime cualquier cosa y te ayudo! 🚀""")
+¡Escribeme cualquier cosa y te ayudo! 🚀""")
 
 
 class HelpCommandHandler(BaseHandler):
@@ -311,16 +311,14 @@ class MessageRouter:
         dominio = INTENCION_A_DOMINIO.get(intención, "general")
         
         # 4. Obtener contexto filtrado por dominio
-        contexto = ConversationRepository.get_by_dominio(db_user["id"], dominio)
-        contexto = contexto["messages"] if contexto else []
+        conv_result = ConversationRepository.get_by_dominio(db_user["id"], dominio)
+        contexto = conv_result["messages"] if conv_result else []
         
-        # 5. Agregar dominio al contexto para los handlers
-        update._dominio_actual = dominio
-        update._contexto_actual = contexto
-        
-        # 6. Ejecutar handler apropiado
+        # 5. Ejecutar handler apropiado
         handler = self._handlers.get(intención, self._handlers["general"])
-        await handler(update, mensaje, db_user)
+        
+        # Pasar dominio y contexto como kwargs al handler
+        await handler(update, mensaje, db_user, dominio=dominio, contexto=contexto)
     
     def _es_cambio_presupuesto(self, mensaje: str) -> bool:
         """Detectar si el mensaje es para cambiar presupuesto"""
@@ -330,7 +328,7 @@ class MessageRouter:
         numeros = any(c.isdigit() for c in mensaje)
         return any(p in mensaje_lower for p in palabras) and numeros
     
-    async def _handle_gasto(self, update: Update, mensaje: str, db_user: dict) -> None:
+    async def _handle_gasto(self, update: Update, mensaje: str, db_user: dict, dominio: str = None, contexto: list = None) -> None:
         """Handler para registrar gasto - usa TOML"""
         try:
             datos: GastoData = self._ia_service.analizar(mensaje)
@@ -351,7 +349,7 @@ class MessageRouter:
         
         await update.message.reply_text(respuesta, parse_mode="Markdown")
     
-    async def _handle_meta(self, update: Update, mensaje: str, db_user: dict) -> None:
+    async def _handle_meta(self, update: Update, mensaje: str, db_user: dict, dominio: str = None, contexto: list = None) -> None:
         """Handler para crear meta"""
         import re
         
@@ -368,11 +366,10 @@ class MessageRouter:
         
         await update.message.reply_text(respuesta, parse_mode="Markdown")
     
-    async def _handle_metanoia(self, update: Update, mensaje: str, db_user: dict) -> None:
+    async def _handle_metanoia(self, update: Update, mensaje: str, db_user: dict, dominio: str = "metanoia", contexto: list = None) -> None:
         """Handler para apoyo emocional - usa TOML modo metanoia"""
-        # Usar contexto filtrado por dominio "metanoia" (desde process())
-        contexto = getattr(update, '_contexto_actual', [])
-        if not contexto:
+        # Usar contexto pasado como parámetro
+        if contexto is None:
             conv = ConversationRepository.get_by_dominio(db_user["id"], "metanoia")
             contexto = conv["messages"] if conv else []
         
@@ -389,11 +386,10 @@ class MessageRouter:
         
         await update.message.reply_text(respuesta, parse_mode="Markdown")
     
-    async def _handle_legal(self, update: Update, mensaje: str, db_user: dict) -> None:
+    async def _handle_legal(self, update: Update, mensaje: str, db_user: dict, dominio: str = "legal", contexto: list = None) -> None:
         """Handler para consultas legales - usa TOML modo legal"""
-        # Usar contexto filtrado por dominio "legal"
-        contexto = getattr(update, '_contexto_actual', [])
-        if not contexto:
+        # Usar contexto pasado como parámetro
+        if contexto is None:
             conv = ConversationRepository.get_by_dominio(db_user["id"], "legal")
             contexto = conv["messages"] if conv else []
         
@@ -439,12 +435,10 @@ class MessageRouter:
             "Para cambiarlo, escribí algo como 'Quiero poner mi presupuesto en 2000'"
         )
     
-    async def _handle_general(self, update: Update, mensaje: str, db_user: dict) -> None:
+    async def _handle_general(self, update: Update, mensaje: str, db_user: dict, dominio: str = "general", contexto: list = None) -> None:
         """Handler para mensajes generales - usa TOML modo system"""
-        # Usar contexto filtrado por dominio (desde process())
-        contexto = getattr(update, '_contexto_actual', [])
-        if not contexto:
-            dominio = getattr(update, '_dominio_actual', 'general')
+        # Usar contexto pasado como parámetro
+        if contexto is None:
             conv = ConversationRepository.get_by_dominio(db_user["id"], dominio)
             contexto = conv["messages"] if conv else []
         
@@ -455,7 +449,6 @@ class MessageRouter:
             respuesta = "Disculpa, tuve un problema. Intentá de nuevo."
         
         # Guardar conversación con dominio específico
-        dominio = getattr(update, '_dominio_actual', 'general')
         contexto.append({"role": "user", "content": mensaje})
         contexto.append({"role": "assistant", "content": respuesta})
         ConversationRepository.save(db_user["id"], contexto[-10:], dominio=dominio)
