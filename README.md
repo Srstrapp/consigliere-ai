@@ -1,11 +1,10 @@
 # 🎯 Consigliere AI 🤖
 
-> Tu asistente IA omnicanal para finanzas, bienestar emocional y consultas legales.
+> Tu asistente IA para finanzas, bienestar emocional y consultas legales.
 
 ![Python](https://img.shields.io/badge/Python-3.11+-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-green)
 ![Telegram](https://img.shields.io/badge/Telegram-Bot-blue)
-![WhatsApp](https://img.shields.io/badge/WhatsApp-Evolution_API-25D366)
 ![Supabase](https://img.shields.io/badge/Supabase-Database-3ECF8E)
 
 ## 🌟 Características
@@ -13,134 +12,125 @@
 - **💰 Finanzas**: Registrá gastos, configurá presupuestos, seguí metas financieras
 - **🧠 Metanoia**: Check-in de bienestar emocional, apoyo motivacional  
 - **⚖️ Legal**: Consultas legales en lenguaje sencillo
-- **🌐 Omnicanal**: Funciona en Telegram y WhatsApp (Evolution API)
 - **🧠 IA**: Potenciado por DeepSeek para respuestas inteligentes
 - **💾 Persistencia**: Supabase como base de datos
 - **🎯 Contexto Aislado**: Sistema de dominios independiente (finanzas/metanoia/legal)
+- **☁️ Deploy**: Listo para Railway
 
-## 🚀 Quick Start
+## 🚀 Deploy en Railway
+
+### Prerrequisitos
+
+- Cuenta de [Railway](https://railway.app)
+- Cuenta de [Supabase](https://supabase.com)
+- Bot de Telegram (obtené el token desde @BotFather)
+- API Key de [DeepSeek](https://platform.deepseek.com)
+
+### 1. Deploy
+
+1. Hacé fork de este repo o clonalo
+2. Iniciá sesión en [Railway](https://railway.app)
+3. Click **New Project** → **Deploy from GitHub repo**
+4. Seleccioná tu repositorio `consigliere-ai`
+5. Railway detectará automaticamente el backend Python
+
+### 2. Variables de entorno
+
+En Railway, configurá las siguientes variables:
+
+| Variable | Descripción |
+|----------|-------------|
+| `SUPABASE_URL` | URL de tu proyecto Supabase |
+| `SUPABASE_ANON_KEY` | Anon key de Supabase |
+| `DEEPSEEK_API_KEY` | Tu API key de DeepSeek |
+| `TELEGRAM_BOT_TOKEN` | Token de tu bot de Telegram |
+
+### 3. Deploy
+
+Click **Deploy** y esperá a que build.
+
+### 4. Configurar Webhook de Telegram
+
+Una vez deployado, configurá el webhook:
+
+```bash
+# Reemplazá YOUR_RAILWAY_URL con tu URL de Railway
+curl -X POST "https://TU-RAILWAY-URL.io/webhook/telegram"
+```
+
+O usá la API de Telegram:
+```
+https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://TU-RAILWAY-URL.io/webhook/telegram
+```
+
+---
+
+## 🖥️ Desarrollo Local
 
 ### Prerrequisitos
 
 - Python 3.11+
-- Docker y Docker Compose
 - Cuenta de Supabase
-- Bot de Telegram (obtené el token desde @BotFather)
-- (Opcional) Evolution API para WhatsApp
+- Bot de Telegram
 
-### 1. Clonar el repositorio
+### 1. Clonar y setup
 
 ```bash
-git clone https://github.com/tu-usuario/consigliere-ai.git
+git clone https://github.com/Srstrapp/consigliere-ai.git
 cd consigliere-ai
+cd backend
 ```
 
-### 2. Configurar variables de entorno
+### 2. Crear entorno virtual
 
 ```bash
-cp backend/.env.example backend/.env
-# Editá el .env con tus credenciales
+python -m venv venv
+# Windows
+venv\Scripts\activate
+# Linux/Mac
+source venv/bin/activate
 ```
 
-### 3. Levantar con Docker
+### 3. Instalar dependencias
 
 ```bash
-docker-compose up --build
+pip install -r requirements.txt
 ```
 
-Esto levanta:
-- **Backend** (puerto 8000): API de Consigliere
-- **Evolution API** (puerto 8080): Para WhatsApp
-- **PostgreSQL**: Base de datos para Evolution
-
-### 4. Verificar que esté corriendo
+### 4. Configurar variables
 
 ```bash
-# API
+# Crear archivo .env
+cp .env.example .env
+# Editá con tus credenciales
+```
+
+### 5. Ejecutar
+
+```bash
+uvicorn app.main:app --reload
+```
+
+### 6. Verificar
+
+```bash
 curl http://localhost:8000
-
-# Health
 curl http://localhost:8000/health
-
-# Evolution API (para WhatsApp)
-curl http://localhost:8080
 ```
+
+---
 
 ## 📱 Configurar Telegram
 
 1. Hablá con @BotFather en Telegram
 2. Enviá `/newbot` y seguí las instrucciones
-3. Copiá el TOKEN y agregalo a tu `.env`
+3. Copiá el TOKEN y agregalo a tu variable `TELEGRAM_BOT_TOKEN`
+4. Configurá el webhook:
+   ```
+   https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://TU-DOMINIO/webhook/telegram
+   ```
 
-## 📱 Configurar WhatsApp (Opcional)
-
-1. Andá a `http://localhost:8080`
-2. Login con: `atendai` / `evolucion2024`
-3. Ir a **Instances** → crear nueva instancia
-4. Escaneá el QR con tu WhatsApp
-5. Ir a **Evolution Bot** → Create Bot:
-   - **Instance**: tu instancia
-   - **apiUrl**: `http://backend:8000/bot/evolution`
-   - **triggerType**: `all`
-   - **triggerOperator**: `none`
-
-## 📁 Estructura del Proyecto
-
-```
-consigliere-ai/
-├── backend/
-│   ├── app/
-│   │   ├── main.py              # Entry point de FastAPI
-│   │   ├── config.py            # Configuración (Settings)
-│   │   └── services/
-│   │       ├── telegram.py      # Handlers del bot de Telegram
-│   │       ├── whatsapp.py      # Servicio de WhatsApp (Evolution API)
-│   │       ├── deepseek.py      # Cliente de IA (DeepSeek)
-│   │       └── database.py      # Repositorios de Supabase
-│   ├── requirements.txt
-│   ├── Dockerfile
-│   └── .env.example
-├── docker-compose.yml           # Backend + Evolution API + PostgreSQL
-├── .gitignore
-└── README.md
-```
-
-## 🛠️ Desarrollo Local (Sin Docker)
-
-```bash
-# Entrar al backend
-cd backend
-
-# Crear entorno virtual
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# o
-venv\Scripts\activate     # Windows
-
-# Instalar dependencias
-pip install -r requirements.txt
-
-# Configurar .env
-cp .env.example .env
-# Editá las credenciales
-
-# Ejecutar
-uvicorn app.main:app --reload
-
-# Ver: http://localhost:8000
-```
-
-## 📡 Endpoints
-
-| Endpoint | Método | Descripción |
-|----------|--------|-------------|
-| `/` | GET | Health check básico |
-| `/health` | GET | Estado detallado de servicios |
-| `/api/usuario/{telegram_id}` | GET | Datos del usuario |
-| `/api/{telegram_id}/gastos` | GET | Lista de gastos |
-| `/api/{telegram_id}/metas` | GET | Lista de metas |
-| `/bot/evolution` | POST | Endpoint para Evolution Bot (WhatsApp) |
-| `/webhook/whatsapp` | POST | Webhook de WhatsApp |
+---
 
 ## 🎯 Comandos del Bot
 
@@ -154,14 +144,16 @@ uvicorn app.main:app --reload
 | `/reporte` | Reporte semanal |
 | `/ayuda` | Mostrar ayuda |
 
+---
+
 ## 🧠 Sistema de Dominios
 
-Consigliere usa un sistema de **contexto aislado por dominio** que evita "context bleeding":
+Consigliere usa un sistema de **contexto aislado por dominio**:
 
 ```
-Usuario: "gasté 500 en taxi"     → Dominio: finanzas (session: finanzas_123)
-Usuario: "extraño a mi papá"     → Dominio: metanoia (session: metanoia_123)
-Usuario: "cuánto me queda?"     → Solo usa historial de finanzas, NO arrastra lo emocional
+Usuario: "gasté 500 en taxi"     → Dominio: finanzas
+Usuario: "extraño a mi papá"     → Dominio: metanoia
+Usuario: "cuánto me queda?"     → Solo usa historial de finanzas
 ```
 
 | Dominio | Contenido |
@@ -171,34 +163,43 @@ Usuario: "cuánto me queda?"     → Solo usa historial de finanzas, NO arrastra
 | `legal` | Consultas legales |
 | `general` | Conversaciones generales |
 
-## 🧪 Testing
+---
 
-```bash
-# Tests con pytest
-cd backend
-pytest
+## 📁 Estructura
 
-# Con coverage
-pytest --cov=app
 ```
+consigliere-ai/
+├── backend/
+│   ├── app/
+│   │   ├── main.py              # FastAPI entry point
+│   │   ├── config.py            # Configuración
+│   │   └── services/
+│   │       ├── telegram.py      # Handlers del bot
+│   │       ├── deepseek.py      # Cliente de IA
+│   │       └── database.py      # Repositorios de Supabase
+│   ├── requirements.txt
+│   ├── Dockerfile
+│   └── .env.example
+├── .gitignore
+├── LICENSE
+└── README.md
+```
+
+---
 
 ## 🤝 Contribuir
 
-1. Fork del repositorio
-2. Crear una rama (`git checkout -b feature/nueva-caracteristica`)
-3. Commit de tus cambios
-4. Push a la rama
-5. Abrir un Pull Request
+1. Fork del repo
+2. Crear branch: `git checkout -b feature/nueva-caracteristica`
+3. Commit y push
+4. Abrir Pull Request
+
+---
 
 ## 📄 Licencia
 
 MIT License - Ver [LICENSE](LICENSE)
 
-## 👤 Autor
-
-**Tu nombre**  
-- GitHub: [@tu-usuario](https://github.com/tu-usuario)
-
 ---
 
-⭐️ Si te gusta este proyecto, dale una estrella!
+⭐️ Hecho con ❤️ para la presentación
