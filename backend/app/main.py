@@ -305,7 +305,7 @@ async def telegram_webhook(update: dict):
             return {"status": "ignored"}
         
         # Importar y usar el MessageRouter
-        from backend.backend.app.services.telegram import MessageRouter
+        from backend.app.services.telegram import MessageRouter
         
         router = MessageRouter()
         
