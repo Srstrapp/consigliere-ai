@@ -30,17 +30,23 @@ async def lifespan(app: FastAPI):
     """Lifecycle - iniciar/stop servicios externos"""
     global bot_app, whatsapp_service
     
-    # TELEGRAM - según entorno
+    # TELEGRAM - detectar si es Railway o local
     if settings.telegram_bot_token:
         try:
+            # Railway tiene estas variables de entorno
+            is_railway = bool(os.getenv('RAILWAY_PUBLIC_DOMAIN') or os.getenv('RAILWAY_STATIC_URL'))
+            
             from telegram import Bot
             from telegram.error import TelegramError
             
-            # Si hay RAILWAY_STATIC_URL, usar webhook; si no, usar polling
-            if os.getenv('RAILWAY_STATIC_URL'):
-                # Railway: configurar webhook
+            if is_railway:
+                # Railway: usar webhook
                 bot = Bot(token=settings.telegram_bot_token)
-                webhook_url = f"https://{os.getenv('RAILWAY_STATIC_URL')}/webhook/telegram"
+                if os.getenv('RAILWAY_STATIC_URL'):
+                    webhook_url = f"https://{os.getenv('RAILWAY_STATIC_URL')}/webhook/telegram"
+                else:
+                    webhook_url = f"https://{os.getenv('RAILWAY_PUBLIC_DOMAIN')}/webhook/telegram"
+                
                 try:
                     await bot.set_webhook(url=webhook_url)
                     logger.info(f"✅ Telegram webhook configurado: {webhook_url}")
