@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import asyncio
 import logging
+import os
 
 from .config import get_settings
 from .services.database import UserRepository, ExpenseRepository, GoalRepository
@@ -30,16 +31,25 @@ async def lifespan(app: FastAPI):
     """Lifecycle - iniciar/stop servicios externos"""
     global bot_app, whatsapp_service
     
-    # Iniciar Telegram Bot
+    # Configurar Telegram como Webhook (no polling) para evitar conflictos
     if settings.telegram_bot_token:
         try:
-            bot_app = create_bot_application()
-            await bot_app.initialize()
-            await bot_app.start()
-            logger.info("✅ Telegram Bot iniciado")
+            from telegram import Bot
+            from telegram.error import TelegramError
             
-            # Polling en background
-            asyncio.create_task(bot_app.updater.start_polling(drop_pending_updates=True))
+            bot = Bot(token=settings.telegram_bot_token)
+            
+            # Set webhook - Railway da una URL dinámica
+            webhook_url = f"{os.getenv('RAILWAY_STATIC_URL', 'https://consigliere.up.railway.app')}/webhook/telegram"
+            
+            try:
+                await bot.set_webhook(url=webhook_url)
+                logger.info(f"✅ Telegram webhook configurado: {webhook_url}")
+            except TelegramError as e:
+                logger.warning(f"⚠️ Error configurando webhook: {e}")
+            
+            logger.info("✅ Telegram Bot configurado con webhook")
+            
         except Exception as e:
             logger.warning(f"⚠️ Telegram Bot no iniciado: {e}")
     
@@ -267,9 +277,33 @@ async def evolution_bot(payload: dict):
 
 @app.post("/webhook/telegram")
 async def telegram_webhook(update: dict):
-    """Webhook para Telegram (alternativo a polling)"""
-    # Por ahora no usado - usamos polling
-    return {"status": "received"}
+    """Webhook para recibir mensajes de Telegram"""
+    try:
+        from telegram import Update
+        from telegram.ext import ContextTypes
+        
+        # Crear objeto Update desde el payload del webhook
+        update_obj = Update.de_json(update, Bot(token=settings.telegram_bot_token) if settings.telegram_bot_token else None)
+        
+        if not update_obj.message:
+            return {"status": "ignored"}
+        
+        # Importar y usar el MessageRouter
+        from app.services.telegram import MessageRouter
+        
+        router = MessageRouter()
+        
+        # Crear un contextofake
+        class FakeContext:
+            pass
+        
+        # Procesar el mensaje
+        await router.process(update_obj, FakeContext())
+        
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Error en webhook de Telegram: {e}")
+        return {"status": "error", "detail": str(e)}
 
 
 @app.post("/webhook/whatsapp")
