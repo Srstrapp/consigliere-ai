@@ -17,6 +17,15 @@ class GastoData(BaseModel):
     monto: float
     categoria: str = "otro"
     desc: str = ""
+    moneda: str = "USD"
+
+
+class IngresoData(BaseModel):
+    """Schema para datos de ingreso"""
+    monto: float
+    moneda: str = "USD"
+    fuente: str = "otro"
+    desc: str = ""
 
 
 class IntencionData(BaseModel):
@@ -212,12 +221,42 @@ class DeepSeekService(IAChatService, IAGastoAnalyzer, IANLPService):
             return GastoData(
                 monto=data.get("monto", 0),
                 categoria=data.get("categoria", data.get("categoría", "otro")),
+                desc=data.get("desc", data.get("descripción", "")),
+                moneda=data.get("moneda", "USD")
+            )
+        except json.JSONDecodeError:
+            return GastoData(monto=0, categoria="otro", desc=texto, moneda="USD")
+        except Exception as e:
+            raise IAResponseError(f"Error analizando gasto: {str(e)}")
+    
+    async def analizar_ingreso(self, texto: str) -> IngresoData:
+        """Analizar ingreso desde texto usando TOML (Async)"""
+        base_prompt = self._get_prompt("prompts.ingreso.prompt", 
+            "Extrae ingreso en JSON.")
+        prompt = base_prompt.replace("{texto}", texto)
+        max_tokens = self._get_config("ia.gasto", "max_tokens", 200)
+        temperature = self._get_config("ia.gasto", "temperature", 0.3)
+        
+        try:
+            response = await self._client.chat.completions.create(
+                model="deepseek-chat",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=max_tokens,
+                temperature=temperature
+            )
+            content = response.choices[0].message.content.strip()
+            content = content.replace("```json", "").replace("```", "").strip()
+            data = json.loads(content)
+            return IngresoData(
+                monto=data.get("monto", 0),
+                moneda=data.get("moneda", "USD"),
+                fuente=data.get("fuente", "otro"),
                 desc=data.get("desc", data.get("descripción", ""))
             )
         except json.JSONDecodeError:
-            return GastoData(monto=0, categoria="otro", desc=texto)
+            return IngresoData(monto=0, moneda="USD", fuente="otro", desc=texto)
         except Exception as e:
-            raise IAResponseError(f"Error analizando gasto: {str(e)}")
+            raise IAResponseError(f"Error analizando ingreso: {str(e)}")
 
     async def analizar_imagen(self, image_b64: str) -> Dict:
         """Extraer datos de factura usando Vision (Async)"""

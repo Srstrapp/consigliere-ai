@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from typing import Optional
 from datetime import datetime
 
-from .database import UserRepository, ExpenseRepository, GoalRepository, ConversationRepository, LoginTokenRepository
+from .database import UserRepository, ExpenseRepository, GoalRepository, ConversationRepository, LoginTokenRepository, IncomeRepository
 from .deepseek import AIServiceFactory, IAResponseError, GastoData
 from .automation import BudgetAlert, ReminderScheduler, WellnessCheck, WeeklyReport, GoalTracker
 from .whatsapp import WhatsAppService
@@ -331,8 +331,10 @@ class PlatformMessage:
 # Mapping de intención a dominio para contexto aislado
 INTENCION_A_DOMINIO = {
     "gasto": "finanzas",
+    "ingreso": "finanzas",
     "meta": "finanzas",
     "presupuesto": "finanzas",
+    "deuda": "finanzas",
     "metanoia": "metanoia",
     "legal": "legal",
     "general": "general"
@@ -350,10 +352,12 @@ class MessageRouter:
         self._ia_service = AIServiceFactory.get_service()
         self._handlers = {
             "gasto": self._handle_gasto,
+            "ingreso": self._handle_ingreso,
             "meta": self._handle_meta,
+            "deuda": self._handle_deuda,
             "metanoia": self._handle_metanoia,
             "legal": self._handle_legal,
-            "presupuesto": self._handle_presupuesto,  # NEW
+            "presupuesto": self._handle_presupuesto,
             "general": self._handle_general
         }
     
@@ -416,13 +420,11 @@ class MessageRouter:
         handler = self._handlers.get(intención, self._handlers["general"])
         
         # Pasar dominio y contexto como kwargs al handler
-        await handler(update, mensaje, db_user, dominio=dominio, contexto=contexto)
-        
-        # 5. Ejecutar handler apropiado
-        handler = self._handlers.get(intención, self._handlers["general"])
-        
-        # Pasar dominio y contexto como kwargs al handler
-        await handler(update, mensaje, db_user, dominio=dominio, contexto=contexto)
+        try:
+            await handler(update, mensaje, db_user, dominio=dominio, contexto=contexto)
+        except Exception as e:
+            # Si falla el handler, responder brevemente
+            await update.message.reply_text("Tuve un problema procesando tu mensaje. Probá de nuevo.", parse_mode="Markdown")
     
     def _es_cambio_presupuesto(self, mensaje: str) -> bool:
         """Detectar si el mensaje es para cambiar presupuesto"""
@@ -447,9 +449,50 @@ class MessageRouter:
                 datos.categoria,
                 datos.desc or mensaje
             )
-            respuesta = f"✅ *Gasto registrado:*\n\n💰 ${datos.monto:.2f}\n📂 {datos.categoria}"
+            moneda_emoji = "💵" if datos.moneda == "USD" else "💲"
+            respuesta = f"✅ *Gasto registrado*\n\n{moneda_emoji} {datos.moneda} {datos.monto:.2f}\n📂 {datos.categoria}"
         else:
-            respuesta = "No pude entender el monto del gasto. Podés intentar con algo como 'gasté 5000 en comida'?"
+            respuesta = "No pude entender el gasto. Podés intentar con 'gasté 50 dólares en comida'?"
+        
+        await update.message.reply_text(respuesta, parse_mode="Markdown")
+    
+    async def _handle_ingreso(self, update: Update, mensaje: str, db_user: dict, dominio: str = None, contexto: list = None) -> None:
+        """Handler para registrar ingreso"""
+        from .deepseek import IngresoData
+        
+        try:
+            datos: IngresoData = await self._ia_service.analizar_ingreso(mensaje)
+        except IAResponseError:
+            await update.message.reply_text("No pude entender el ingreso. Intentá de nuevo.")
+            return
+        
+        if datos.monto > 0:
+            IncomeRepository.create(
+                db_user["id"],
+                datos.monto,
+                datos.moneda,
+                datos.fuente,
+                datos.desc or mensaje
+            )
+            moneda_emoji = "💵" if datos.moneda == "USD" else "💲"
+            respuesta = f"✅ *Ingreso registrado*\n\n{moneda_emoji} {datos.moneda} {datos.monto:.2f}\n📥 Fuente: {datos.fuente}"
+        else:
+            respuesta = "No pude entender el ingreso. Podés intentar con 'recibí 500 dólares de salario'?"
+        
+        await update.message.reply_text(respuesta, parse_mode="Markdown")
+    
+    async def _handle_deuda(self, update: Update, mensaje: str, db_user: dict, dominio: str = None, contexto: list = None) -> None:
+        """Handler para gestionar deudas - respuestas breves"""
+        import re
+        
+        # Buscar monto de deuda en el mensaje
+        monto_match = re.search(r'(\d+(?:\.\d+)?)', mensaje)
+        
+        if monto_match:
+            monto = float(monto_match.group(1))
+            respuesta = f"💳 *Deuda registrada:* {monto:.2f}\n\nPara gestionar tus deudas, usá el Dashboard o escribí '/deudas' para ver el detalle."
+        else:
+            respuesta = "💳 Necesito el monto. Ej: 'tengo una deuda de 200 dólares'"
         
         await update.message.reply_text(respuesta, parse_mode="Markdown")
     

@@ -177,6 +177,51 @@ class ExpenseRepository:
         return {"total": total, "categorías": categorías}
 
 
+class IncomeRepository:
+    """Repositorio de ingresos - encapsula operaciones de incomes"""
+    
+    @staticmethod
+    def create(user_id: str, monto: float, moneda: str = "USD", fuente: str = "otro", descripción: Optional[str] = None) -> Dict:
+        client = SupabaseClient.get_instance()
+        result = client.table("incomes").insert({
+            "user_id": user_id,
+            "monto": monto,
+            "moneda": moneda,
+            "fuente": fuente,
+            "descripción": descripción
+        }).execute()
+        return result.data[0]
+    
+    @staticmethod
+    def get_by_user(user_id: str, limit: int = 10) -> List[Dict]:
+        client = SupabaseClient.get_instance()
+        result = (
+            client.table("incomes")
+            .select("*")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return result.data
+    
+    @staticmethod
+    def get_summary(user_id: str) -> Dict[str, Any]:
+        client = SupabaseClient.get_instance()
+        result = client.table("incomes").select("fuente, monto").eq("user_id", user_id).execute()
+        
+        if not result.data:
+            return {"total": 0, "fuentes": {}}
+        
+        total = sum(r["monto"] for r in result.data)
+        fuentes = {}
+        for r in result.data:
+            fuente = r["fuente"]
+            fuentes[fuente] = fuentes.get(fuente, 0) + r["monto"]
+        
+        return {"total": total, "fuentes": fuentes}
+
+
 class GoalRepository:
     """Repositorio de metas - encapsula operaciones de goals"""
     
