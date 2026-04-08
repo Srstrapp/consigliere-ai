@@ -45,6 +45,14 @@ class UserRepository:
         return result.data[0] if result.data else None
     
     @staticmethod
+    def link_auth_user(user_id: str, auth_user_id: str) -> None:
+        """Vincular el usuario de Telegram con el usuario de Supabase Auth"""
+        client = SupabaseClient.get_instance()
+        client.table("users").update({
+            "auth_user_id": auth_user_id
+        }).eq("id", user_id).execute()
+    
+    @staticmethod
     def create(telegram_id: int, nombre: Optional[str] = None) -> Dict:
         client = SupabaseClient.get_instance()
         

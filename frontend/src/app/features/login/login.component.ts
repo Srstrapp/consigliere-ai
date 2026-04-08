@@ -1,6 +1,7 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 
 import { LucideAngularModule, Brain, Eye, EyeOff, Mail, Lock, User, ArrowRight, Loader } from 'lucide-angular';
 import { AuthService } from '../../services/auth.service';
@@ -14,8 +15,10 @@ type AuthMode = 'login' | 'register';
   templateUrl: './login.component.html',
   styleUrl: './login.component.css',
 })
-export class LoginComponent {
+export class LoginComponent implements OnInit {
   private readonly auth = inject(AuthService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   // Icons
   readonly Brain = Brain;
@@ -38,6 +41,15 @@ export class LoginComponent {
   password = '';
   nombre = '';
 
+  // Telegram token from URL
+  telegramToken = '';
+  telegramId = '';
+
+  ngOnInit() {
+    // Obtener el token de Telegram de la URL
+    this.telegramToken = this.route.snapshot.queryParamMap.get('token') || '';
+  }
+
   get isLogin(): boolean {
     return this.mode() === 'login';
   }
@@ -49,6 +61,37 @@ export class LoginComponent {
 
   togglePassword(): void {
     this.showPassword.update((v) => !v);
+  }
+
+  private async getTelegramIdFromToken(): Promise<string> {
+    if (!this.telegramToken) return '';
+    
+    try {
+      const res = await fetch(`/api/auth/token?token=${this.telegramToken}`);
+      const data = await res.json();
+      if (data.success) {
+        return data.telegram_id;
+      }
+    } catch (e) {
+      console.error('Error getting telegram_id:', e);
+    }
+    return '';
+  }
+
+  private async linkTelegramAccount() {
+    if (!this.telegramId) return;
+    
+    try {
+      await fetch('/api/auth/link-telegram', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ telegram_id: this.telegramId }),
+      });
+    } catch (e) {
+      console.error('Error linking telegram:', e);
+    }
   }
 
   async submit(): Promise<void> {
@@ -68,8 +111,19 @@ export class LoginComponent {
     try {
       if (this.isLogin) {
         await this.auth.signIn(this.email, this.password);
+        // Obtener telegram_id y linked si hay token
+        this.telegramId = await this.getTelegramIdFromToken();
+        if (this.telegramId) {
+          await this.linkTelegramAccount();
+        }
+        this.router.navigate(['/dashboard']);
       } else {
         await this.auth.signUp(this.email, this.password, this.nombre);
+        // Obtener telegram_id y linked si hay token
+        this.telegramId = await this.getTelegramIdFromToken();
+        if (this.telegramId) {
+          await this.linkTelegramAccount();
+        }
         this.error.set('');
         this.mode.set('login');
         this.error.set('✅ Cuenta creada. Iniciá sesión.');
