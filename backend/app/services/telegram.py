@@ -450,9 +450,9 @@ class MessageRouter:
                 datos.desc or mensaje
             )
             moneda_emoji = "💵" if datos.moneda == "USD" else "💲"
-            respuesta = f"✅ *Gasto registrado*\n\n{moneda_emoji} {datos.moneda} {datos.monto:.2f}\n📂 {datos.categoria}"
+            respuesta = f"✅ Listo! Gasto de {moneda_emoji} {datos.moneda} {datos.monto:.2f} en {datos.categoria} registrado"
         else:
-            respuesta = "No pude entender el gasto. Podés intentar con 'gasté 50 dólares en comida'?"
+            respuesta = "¿Cuánto gastaste? Ej: 'gasté 50 dólares en comida'"
         
         await update.message.reply_text(respuesta, parse_mode="Markdown")
     
@@ -475,9 +475,9 @@ class MessageRouter:
                 datos.desc or mensaje
             )
             moneda_emoji = "💵" if datos.moneda == "USD" else "💲"
-            respuesta = f"✅ *Ingreso registrado*\n\n{moneda_emoji} {datos.moneda} {datos.monto:.2f}\n📥 Fuente: {datos.fuente}"
+            respuesta = f"✅ Listo! Ingreso de {moneda_emoji} {datos.moneda} {datos.monto:.2f} ({datos.fuente}) registrado"
         else:
-            respuesta = "No pude entender el ingreso. Podés intentar con 'recibí 500 dólares de salario'?"
+            respuesta = "¿Cuánto recibiste? Ej: 'recibí 500 dólares de salario'"
         
         await update.message.reply_text(respuesta, parse_mode="Markdown")
     
@@ -490,9 +490,9 @@ class MessageRouter:
         
         if monto_match:
             monto = float(monto_match.group(1))
-            respuesta = f"💳 *Deuda registrada:* {monto:.2f}\n\nPara gestionar tus deudas, usá el Dashboard o escribí '/deudas' para ver el detalle."
+            respuesta = f"💳 Deuda de ${monto:.2f} registrada. Para gestionarla, usá /deudas"
         else:
-            respuesta = "💳 Necesito el monto. Ej: 'tengo una deuda de 200 dólares'"
+            respuesta = "¿Cuánto debes? Ej: 'tengo una deuda de 200 dólares'"
         
         await update.message.reply_text(respuesta, parse_mode="Markdown")
     
@@ -507,9 +507,9 @@ class MessageRouter:
             
             GoalRepository.create(db_user["id"], nombre, monto)
             
-            respuesta = f"🎯 *Meta creada!*\n\nObjetivo: {nombre}\nMonto: ${monto:.2f}"
+            respuesta = f"🎯 Meta creada: {nombre} - ${monto:.2f}. Ahorro mensual: ${monto/12:.0f}/mes"
         else:
-            respuesta = "Para crear una meta, indicá el monto. Ej: 'Quiero ahorrar 50000 para un carro'"
+            respuesta = "¿Cuánto necesitás ahorrar? Ej: 'quiero ahorrar 5000 para moto'"
         
         await update.message.reply_text(respuesta, parse_mode="Markdown")
     
