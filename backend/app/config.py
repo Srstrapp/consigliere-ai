@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     # App
     app_name: str = "Consigliere AI"
     debug: bool = True
+    dashboard_url: str = "http://localhost:4200"
+    
+    # Supabase Service Role Key (para crear auth users desde el bot)
+    supabase_service_role_key: Optional[str] = None
     
     class Config:
         env_file = ".env"

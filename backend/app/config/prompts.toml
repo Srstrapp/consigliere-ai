@@ -25,11 +25,22 @@ system = "Eres Metanoia, coach de bienestar. Ayudas al usuario con apoyo emocion
 [prompts.legal]
 system = "Eres asesor legal simplificado. Explicas conceptos legales en lenguaje cotidiano. No das consejos jurídicos profesionales. Translada complejidad a claridad."
 
+# Prompts para análisis de facturas (Vision)
+[prompts.vision]
+prompt = """Analiza esta imagen de una factura/recibo y extrae los siguientes datos financieros en formato JSON estricto:
+{{"monto": número, "moneda": "USD|VES", "comercio": "nombre del negocio", "categoria": "comida|transporte|entretenimiento|salud|servicios|otro", "fecha": "YYYY-MM-DD", "items": ["item1", "item2"]}}
+Si no puedes leer el monto o el comercio, devuelve un JSON con valores nulos o vacíos. Solo JSON."""
+
 # Configuración de la IA
 [ia.model]
 name = "deepseek-chat"
+vision_model = "deepseek-vision" # O gpt-4o-mini si no hay vision nativa
 max_tokens = 500
 temperature = 0.7
+
+[ia.vision]
+max_tokens = 500
+temperature = 0.2
 
 [ia.gasto]
 max_tokens = 200

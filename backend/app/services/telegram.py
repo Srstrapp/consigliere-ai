@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from typing import Optional
 from datetime import datetime
 
-from .database import UserRepository, ExpenseRepository, GoalRepository, ConversationRepository
+from .database import UserRepository, ExpenseRepository, GoalRepository, ConversationRepository, LoginTokenRepository
 from .deepseek import AIServiceFactory, IAResponseError, GastoData
 from .automation import BudgetAlert, ReminderScheduler, WellnessCheck, WeeklyReport, GoalTracker
 from .whatsapp import WhatsAppService
@@ -69,18 +69,47 @@ class BaseHandler(ABC):
 # ==================== COMMAND HANDLERS ====================
 
 class StartCommandHandler(BaseHandler):
-    """Handler para /start - Bienvenida"""
+    """Handler para /start - Registro y bienvenida"""
     
     async def execute(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        await self.reply(update, """🎯 *Consigliere AI*
+        user = update.effective_user
+        
+        # Registrar usuario si no existe
+        db_user = UserRepository.get_by_telegram(user.id)
+        es_nuevo = db_user is None
+        
+        if not db_user:
+            db_user = UserRepository.create(user.id, user.first_name)
+        
+        # Generar token de login para el dashboard
+        token = LoginTokenRepository.create(user.id)
+        dashboard_url = f"{settings.dashboard_url}/auth?token={token}"
+        
+        if es_nuevo:
+            await self.reply(update, f"""🎯 *Bienvenido a Consigliere AI, {user.first_name}!*
 
-Tu asistente omnicanal para:
+Tu asistente personal para:
 
 💰 *Finanzas* - Registrá gastos, analizá tu dinero
-🧠 *Metanoia* - Apoyo emocional y motivación  
-⚖️ *Ley* - Consultas legales en lenguaje sencillo
+🧠 *Psicología* - Apoyo emocional y motivación  
+⚖️ *Legal* - Consultas en lenguaje sencillo
 
-¡Escribeme cualquier cosa y te ayudo! 🚀""")
+*Antes de empezar:* ¿Cuál es tu presupuesto mensual?
+Escribí el número, ej: `2000`
+
+🖥️ También podés acceder a tu *Dashboard Web*:
+{dashboard_url}
+_(link válido por 1 hora)_""")
+        else:
+            await self.reply(update, f"""👋 *Hola de nuevo, {user.first_name}!*
+
+🖥️ Accedé a tu *Dashboard Web*:
+{dashboard_url}
+_(link válido por 1 hora)_
+
+¿En qué te puedo ayudar hoy?""")
+
+
 
 
 class HelpCommandHandler(BaseHandler):
@@ -340,7 +369,8 @@ class MessageRouter:
         
         # 2. Detectar intención (usa TOML)
         try:
-            intención = self._ia_service.detectar_intención(mensaje).intencion
+            intención_data = await self._ia_service.detectar_intención(mensaje)
+            intención = intención_data.intencion
         except IAResponseError:
             intención = "general"
         
@@ -368,7 +398,7 @@ class MessageRouter:
     async def _handle_gasto(self, update: Update, mensaje: str, db_user: dict, dominio: str = None, contexto: list = None) -> None:
         """Handler para registrar gasto - usa TOML"""
         try:
-            datos: GastoData = self._ia_service.analizar(mensaje)
+            datos: GastoData = await self._ia_service.analizar(mensaje)
         except IAResponseError:
             await update.message.reply_text("No pude entender el gasto. Intenta de nuevo.")
             return
@@ -412,7 +442,7 @@ class MessageRouter:
         
         try:
             # Usa modo metanoia desde TOML
-            respuesta = self._ia_service.chat(mensaje, contexto, modo="metanoia")
+            respuesta = await self._ia_service.chat(mensaje, contexto, modo="metanoia")
         except IAResponseError:
             respuesta = "Disculpa, tuve un problema. Intentá de nuevo."
         
@@ -432,7 +462,7 @@ class MessageRouter:
         
         try:
             # Usa modo legal desde TOML
-            respuesta = self._ia_service.chat(mensaje, contexto, modo="legal")
+            respuesta = await self._ia_service.chat(mensaje, contexto, modo="legal")
         except IAResponseError:
             respuesta = "Disculpa, tuve un problema con la consulta legal. Intentá de nuevo."
         
@@ -466,7 +496,8 @@ class MessageRouter:
                 # Reprocesar el mensaje pendiente (llamada recursiva al process)
                 # Obtener intención del mensaje pendiente
                 try:
-                    intención_pendiente = self._ia_service.detectar_intención(mensaje_pendiente).intencion
+                    intención_pendiente_data = await self._ia_service.detectar_intención(mensaje_pendiente)
+                    intención_pendiente = intención_pendiente_data.intencion
                 except:
                     intención_pendiente = "general"
                 
@@ -507,7 +538,7 @@ class MessageRouter:
         
         try:
             # Usa modo system (default) desde TOML
-            respuesta = self._ia_service.chat(mensaje, contexto, modo="system")
+            respuesta = await self._ia_service.chat(mensaje, contexto, modo="system")
         except IAResponseError:
             respuesta = "Disculpa, tuve un problema. Intentá de nuevo."
         
@@ -540,5 +571,56 @@ def create_bot_application() -> Application:
     # Handler de mensajes
     message_router = MessageRouter()
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_router.process))
-    
+
+    # Handler de fotos para OCR de facturas
+    async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user = update.effective_user
+        # Obtener la foto de mayor resolución
+        photo_file = await update.message.photo[-1].get_file()
+
+        # Descargar a memoria
+        import io
+        import base64
+        buf = io.BytesIO()
+        await photo_file.download_to_memory(buf)
+        image_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+
+        # Procesar con Vision
+        ia_service = AIServiceFactory.get_service()
+        try:
+            await update.message.reply_text("🔍 *Analizando factura...*", parse_mode="Markdown")
+            datos = await ia_service.analizar_imagen(image_b64)
+
+            if datos.get("monto"):
+                # Asegurar usuario
+                db_user = UserRepository.get_by_telegram(user.id)
+                if not db_user:
+                    db_user = UserRepository.create(user.id, user.first_name)
+
+                # Guardar gasto
+                ExpenseRepository.create(
+                    db_user["id"],
+                    datos["monto"],
+                    datos.get("categoria", "otro"),
+                    f"OCR: {datos.get('comercio', 'Factura')}"
+                )
+
+                # Respuesta de éxito
+                items_str = "\n".join([f"• {i}" for i in datos.get("items", [])[:3]])
+                await update.message.reply_text(
+                    f"✅ *Factura Procesada*\n\n"
+                    f"🏢 *Comercio:* {datos.get('comercio', 'N/A')}\n"
+                    f"💰 *Monto:* ${datos['monto']:.2f}\n"
+                    f"📂 *Categoría:* {datos.get('categoria', 'otro')}\n"
+                    f"📝 *Items:*\n{items_str}\n\n"
+                    f"El gasto ha sido registrado en tu historial.",
+                    parse_mode="Markdown"
+                )
+            else:
+                await update.message.reply_text("No pude leer los datos de la factura. Asegúrate de que se vea clara.")
+        except Exception as e:
+            await update.message.reply_text(f"Hubo un problema procesando la imagen: {str(e)}")
+
+    application.add_handler(MessageHandler(filters.PHOTO, photo_handler))
+
     return application

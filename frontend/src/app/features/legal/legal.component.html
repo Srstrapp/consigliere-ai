@@ -1,0 +1,96 @@
+<div class="legal-page">
+  <!-- Header -->
+  <nav class="page-nav">
+    <button (click)="goBack()" class="back-btn">
+      <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+      </svg>
+      Dashboard
+    </button>
+    <span class="page-title">Legal Library · Asesoría en tu idioma</span>
+    <div style="width: 140px"></div>
+  </nav>
+
+  <div class="page-content">
+
+    <!-- Hero -->
+    <div class="hero-section">
+      <div class="scale-icon">⚖️</div>
+      <div class="hero-text">
+        <div class="disclaimer-badge">⚠️ Orientación informativa — no reemplaza asesoría profesional</div>
+        <h1>Módulo Legal</h1>
+        <p>Consultás en lenguaje simple. Sin abogados, sin burocracia.
+          Consigliere traduce el lenguaje legal al lenguaje humano.</p>
+      </div>
+    </div>
+
+    <!-- Documentos / Asuntos activos -->
+    <section class="section">
+      <div class="section-header">
+        <h2>Asuntos Activos</h2>
+        <span class="badge badge-amber">{{ documentos.length }} registros</span>
+      </div>
+
+      @if (loading) {
+      <div class="skeleton-list">
+        @for (i of [1,2]; track i) {
+        <div class="skeleton-item"></div>
+        }
+      </div>
+      } @else if (documentos.length === 0) {
+      <div class="empty-state">
+        <span class="empty-icon">✅</span>
+        <p>Todo en regla — no hay asuntos legales pendientes</p>
+        <p class="empty-hint">Si necesitás consultar algo, escribile a Consigliere por Telegram</p>
+      </div>
+      } @else {
+      <div class="doc-list">
+        @for (doc of documentos; track doc.id) {
+        <div class="doc-card" [class]="'estado-' + doc.estado">
+          <div class="doc-header">
+            <div>
+              <p class="doc-titulo">{{ doc.titulo }}</p>
+              <p class="doc-fecha">{{ doc.created_at | date: 'dd/MM/yyyy' }}</p>
+            </div>
+            <span class="estado-chip">{{ formatEstado(doc.estado) }}</span>
+          </div>
+          @if (doc.resumen) {
+          <p class="doc-resumen">"{{ doc.resumen }}"</p>
+          }
+        </div>
+        }
+      </div>
+      }
+    </section>
+
+    <!-- Temas frecuentes -->
+    <section class="section">
+      <h2>Consultás frecuentes</h2>
+      <div class="temas-grid">
+        @for (tema of temas; track tema.title) {
+        <div class="tema-card">
+          <span class="tema-emoji">{{ tema.emoji }}</span>
+          <div>
+            <h3>{{ tema.title }}</h3>
+            <p>{{ tema.desc }}</p>
+          </div>
+        </div>
+        }
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <div class="cta-banner">
+      <h2>¿Tenés una consulta legal?</h2>
+      <p>Escribí tu duda en lenguaje natural. Sin formularios ni turnos.</p>
+      <a href="https://t.me/ConsigliereAssistantBot" target="_blank" class="cta-btn">
+        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+          <path
+            d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.069l-2.012 9.495c-.148.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.564-4.458c.537-.194 1.006.131.881.723z" />
+        </svg>
+        Consultar en Telegram
+      </a>
+    </div>
+
+  </div>
+</div>

@@ -3,7 +3,7 @@ Cliente de DeepSeek AI - Strategy Pattern con TOML
 Carga prompts desde archivo de configuración para optimizar tokens
 """
 
-from openai import OpenAI
+from openai import AsyncOpenAI
 from typing import Optional, List, Dict
 from pydantic import BaseModel
 import json
@@ -95,7 +95,7 @@ def load_toml_config() -> Dict:
 class IAChatService:
     """Interface para chat con IA"""
     
-    def chat(self, mensaje: str, contexto: Optional[List[Dict]] = None, modo: str = "system") -> str:
+    async def chat(self, mensaje: str, contexto: Optional[List[Dict]] = None, modo: str = "system") -> str:
         """Enviar mensaje y obtener respuesta"""
         raise NotImplementedError
 
@@ -103,7 +103,7 @@ class IAChatService:
 class IAGastoAnalyzer:
     """Interface para analizar gastos"""
     
-    def analizar(self, texto: str) -> GastoData:
+    async def analizar(self, texto: str) -> GastoData:
         """Analizar texto y extraer datos del gasto"""
         raise NotImplementedError
 
@@ -111,7 +111,7 @@ class IAGastoAnalyzer:
 class IANLPService:
     """Interface para NLP (intenciones, etc)"""
     
-    def detectar_intención(self, mensaje: str) -> IntencionData:
+    async def detectar_intención(self, mensaje: str) -> IntencionData:
         """Detectar intención del mensaje"""
         raise NotImplementedError
 
@@ -129,7 +129,7 @@ class DeepSeekService(IAChatService, IAGastoAnalyzer, IANLPService):
         if not api_key:
             raise IAConfigurationError("DEEPSEEK_API_KEY es requerida")
         
-        self._client = OpenAI(
+        self._client = AsyncOpenAI(
             api_key=api_key,
             base_url="https://api.deepseek.com"
         )
@@ -140,11 +140,11 @@ class DeepSeekService(IAChatService, IAGastoAnalyzer, IANLPService):
         # System prompts por modo
         self._prompts = {
             "system": self._get_prompt("prompts.system.content", 
-                "Eres Consigliere. Asistente IA."),
+                "Eres el Consigliere de Vito Corleone. Habla como un asesor estratega, elegante pero intimidante si es necesario, leal a la familia. Sin embargo, sé extremadamente directo, brillante y al grano, evitando dar discursos largos."),
             "metanoia": self._get_prompt("prompts.metanoia.system",
-                "Eres Metanoia, coach de bienestar."),
+                "Eres Metanoia, coach de bienestar. Sé empático pero conciso."),
             "legal": self._get_prompt("prompts.legal.system",
-                "Eres asesor legal simplificado.")
+                "Eres asesor legal simplificado. Explica los conceptos de forma clara y al grano.")
         }
     
     def _get_prompt(self, key: str, default: str = "") -> str:
@@ -166,8 +166,8 @@ class DeepSeekService(IAChatService, IAGastoAnalyzer, IANLPService):
         except:
             return default
     
-    def chat(self, mensaje: str, contexto: Optional[List[Dict]] = None, modo: str = "system") -> str:
-        """Chat general con IA"""
+    async def chat(self, mensaje: str, contexto: Optional[List[Dict]] = None, modo: str = "system") -> str:
+        """Chat general con IA (Async)"""
         system_prompt = self._prompts.get(modo, self._prompts["system"])
         
         messages = [{"role": "system", "content": system_prompt}]
@@ -177,11 +177,11 @@ class DeepSeekService(IAChatService, IAGastoAnalyzer, IANLPService):
         
         messages.append({"role": "user", "content": mensaje})
         
-        max_tokens = self._get_config("ia.model", "max_tokens", 500)
+        max_tokens = self._get_config("ia.model", "max_tokens", 2000)
         temperature = self._get_config("ia.model", "temperature", 0.7)
         
         try:
-            response = self._client.chat.completions.create(
+            response = await self._client.chat.completions.create(
                 model="deepseek-chat",
                 messages=messages,
                 max_tokens=max_tokens,
@@ -191,31 +191,23 @@ class DeepSeekService(IAChatService, IAGastoAnalyzer, IANLPService):
         except Exception as e:
             raise IAResponseError(f"Error en chat: {str(e)}")
     
-    def analizar(self, texto: str) -> GastoData:
-        """Analizar gasto desde texto usando TOML"""
-        # Cargar prompt desde TOML
+    async def analizar(self, texto: str) -> GastoData:
+        """Analizar gasto desde texto usando TOML (Async)"""
         base_prompt = self._get_prompt("prompts.gasto.prompt", 
             "Extrae gasto en JSON.")
-        
-        # Reemplazar placeholder
         prompt = base_prompt.replace("{texto}", texto)
-        
         max_tokens = self._get_config("ia.gasto", "max_tokens", 200)
         temperature = self._get_config("ia.gasto", "temperature", 0.3)
         
         try:
-            response = self._client.chat.completions.create(
+            response = await self._client.chat.completions.create(
                 model="deepseek-chat",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=max_tokens,
                 temperature=temperature
             )
-            
-            # Limpiar respuesta y parsear
             content = response.choices[0].message.content.strip()
-            # Remover markdown fences si hay
             content = content.replace("```json", "").replace("```", "").strip()
-            
             data = json.loads(content)
             return GastoData(
                 monto=data.get("monto", 0),
@@ -226,26 +218,57 @@ class DeepSeekService(IAChatService, IAGastoAnalyzer, IANLPService):
             return GastoData(monto=0, categoria="otro", desc=texto)
         except Exception as e:
             raise IAResponseError(f"Error analizando gasto: {str(e)}")
+
+    async def analizar_imagen(self, image_b64: str) -> Dict:
+        """Extraer datos de factura usando Vision (Async)"""
+        prompt = self._get_prompt("prompts.vision.prompt", "Analiza esta factura y extrae JSON.")
+        vision_model = self._get_config("ia.model", "vision_model", "deepseek-vision")
+        max_tokens = self._get_config("ia.vision", "max_tokens", 500)
+        temperature = self._get_config("ia.vision", "temperature", 0.2)
+
+        try:
+            response = await self._client.chat.completions.create(
+                model=vision_model,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/jpeg;base64,{image_b64}"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                max_tokens=max_tokens,
+                temperature=temperature
+            )
+            content = response.choices[0].message.content.strip()
+            content = content.replace("```json", "").replace("```", "").strip()
+            return json.loads(content)
+        except Exception as e:
+            raise IAResponseError(f"Error en Vision: {str(e)}")
     
-    def detectar_intención(self, mensaje: str) -> IntencionData:
-        """Detectar intención usando TOML"""
-        base_prompt = self._get_prompt("prompts.intencion.prompt",
-            "Clasifica el mensaje.")
-        
+    async def detectar_intención(self, mensaje: str) -> IntencionData:
+        """Detectar intención usando TOML (Async)"""
+        base_prompt = self._get_prompt("prompts.intencion.prompt", "Clasifica el mensaje.")
         prompt = base_prompt.replace("{mensaje}", mensaje)
         
         max_tokens = self._get_config("ia.intencion", "max_tokens", 50)
         temperature = self._get_config("ia.intencion", "temperature", 0.3)
         
         try:
-            response = self._client.chat.completions.create(
+            response = await self._client.chat.completions.create(
                 model="deepseek-chat",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=max_tokens,
                 temperature=temperature
             )
             intención = response.choices[0].message.content.strip().lower()
-            return IntencionData(intencion=intencion, confianza=0.9)
+            return IntencionData(intencion=intención, confianza=0.9)
         except Exception as e:
             return IntencionData(intencion="general", confianza=0.5)
 

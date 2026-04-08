@@ -110,6 +110,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Routers
+from .routers import auth as auth_router
+app.include_router(auth_router.router)
+
 
 # ==================== HEALTH ENDPOINTS ====================
 

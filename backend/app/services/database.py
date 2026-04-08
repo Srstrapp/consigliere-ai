@@ -240,3 +240,41 @@ class ConversationRepository:
             .execute()
         )
         return result.data[0]["messages"] if result.data else []
+
+
+class LoginTokenRepository:
+    """Repositorio de tokens de login para acceso desde el bot al dashboard"""
+
+    @staticmethod
+    def create(telegram_id: int) -> str:
+        """Crear token de login válido 1 hora y retornar el token string"""
+        client = SupabaseClient.get_instance()
+        result = client.table("login_tokens").insert({
+            "telegram_id": telegram_id
+        }).execute()
+        return result.data[0]["token"]
+
+    @staticmethod
+    def validate(token: str) -> Optional[Dict]:
+        """Validar token y retornar datos del usuario si es válido"""
+        client = SupabaseClient.get_instance()
+        result = (
+            client.table("login_tokens")
+            .select("*")
+            .eq("token", token)
+            .eq("used", False)
+            .gt("expires_at", "now()")
+            .single()
+            .execute()
+        )
+        if not result.data:
+            return None
+
+        token_data = result.data
+
+        # Marcar como usado
+        client.table("login_tokens").update({"used": True}).eq("id", token_data["id"]).execute()
+
+        # Buscar usuario
+        user = UserRepository.get_by_telegram(token_data["telegram_id"])
+        return user

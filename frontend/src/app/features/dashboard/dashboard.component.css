@@ -1,0 +1,6 @@
+/* Las dash-card arrancaron visibles (no opacity:0)
+   GSAP hace fromTo() desde opacity:0 → opacity:1
+   Si GSAP falla, la class de fallback asegura visibilidad */
+.dash-card {
+  opacity: 1; /* Fallback: siempre visible si GSAP no corre */
+}

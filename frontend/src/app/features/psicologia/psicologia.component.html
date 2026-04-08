@@ -1,0 +1,124 @@
+<div class="psicologia-page">
+  <!-- Header -->
+  <nav class="page-nav">
+    <button (click)="goBack()" class="back-btn">
+      <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+      </svg>
+      Dashboard
+    </button>
+    <span class="page-title">Metanoia · Psicología & Bienestar</span>
+    <div style="width: 120px"></div>
+  </nav>
+
+  <!-- Main -->
+  <div class="page-content">
+
+    <!-- Hero Orb -->
+    <div class="hero-section">
+      <div class="orb-container">
+        <svg viewBox="0 0 200 200" class="orb-svg">
+          <defs>
+            <radialGradient id="psyGrad" cx="40%" cy="35%" r="60%">
+              <stop offset="0%" stop-color="#c4b5fd" />
+              <stop offset="50%" stop-color="#7c3aed" />
+              <stop offset="100%" stop-color="#312e81" />
+            </radialGradient>
+            <filter id="psyGlow">
+              <feGaussianBlur stdDeviation="8" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          <circle cx="100" cy="100" r="80" fill="url(#psyGrad)" filter="url(#psyGlow)" class="orb-pulse" />
+        </svg>
+        <div class="orb-icon">🧠</div>
+      </div>
+      <div class="hero-text">
+        <h1>Pulso Emocional</h1>
+        @if (ultimoCheckin) {
+        <p class="hero-desc">{{ ultimoCheckin['emocion_principal'] ?? 'Bienestar estable' }} · Energía al <strong>{{
+            ultimoCheckin['nivel_energia'] }}%</strong></p>
+        <div class="energia-bar">
+          <div class="energia-fill" [style.width.%]="ultimoCheckin['nivel_energia']"></div>
+        </div>
+        <p class="energia-label">{{ ultimoCheckin['nivel_energia'] }}% de energía registrada</p>
+        } @else if (loading) {
+        <p class="hero-desc loading-text">Cargando tu última sesión...</p>
+        } @else {
+        <p class="hero-desc">Todavía no hiciste tu primer check-in de bienestar.</p>
+        <p class="energia-label">Escribí <strong>/bienestar</strong> en Telegram para empezar</p>
+        }
+      </div>
+    </div>
+
+    <!-- Historial de check-ins -->
+    <section class="section">
+      <div class="section-header">
+        <h2>Historial Emocional</h2>
+        <span class="badge">{{ checkins.length }} registros</span>
+      </div>
+
+      @if (loading) {
+      <div class="skeleton-list">
+        @for (i of [1,2,3]; track i) {
+        <div class="skeleton-item"></div>
+        }
+      </div>
+      } @else if (checkins.length === 0) {
+      <div class="empty-state">
+        <span class="empty-icon">🌱</span>
+        <p>Tu historial emocional aparecerá aquí</p>
+        <p class="empty-hint">Usá el Bot cada día para hacer tracking de tu bienestar</p>
+      </div>
+      } @else {
+      <div class="checkin-list">
+        @for (c of checkins; track c.id) {
+        <div class="checkin-card">
+          <div class="checkin-header">
+            <span class="checkin-emocion">{{ c['emocion_principal'] ?? '—' }}</span>
+            <span class="checkin-date">{{ c['created_at'] | date: 'dd/MM, HH:mm' }}</span>
+          </div>
+          <div class="checkin-bar">
+            <div class="checkin-fill" [style.width.%]="c['nivel_energia']"></div>
+          </div>
+          @if (c['notas']) {
+          <p class="checkin-notas">{{ c['notas'] }}</p>
+          }
+        </div>
+        }
+      </div>
+      }
+    </section>
+
+    <!-- Features -->
+    <section class="section">
+      <h2>¿Qué podés hacer?</h2>
+      <div class="features-grid">
+        @for (f of features; track f.title) {
+        <div class="feature-card">
+          <span class="feature-emoji">{{ f.emoji }}</span>
+          <h3>{{ f.title }}</h3>
+          <p>{{ f.desc }}</p>
+        </div>
+        }
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <div class="cta-banner">
+      <h2>¿Cómo te sentís hoy?</h2>
+      <p>Abrí Telegram y escribile a Consigliere AI</p>
+      <a href="https://t.me/ConsigliereAssistantBot" target="_blank" class="cta-btn">
+        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+          <path
+            d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.069l-2.012 9.495c-.148.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.564-4.458c.537-.194 1.006.131.881.723z" />
+        </svg>
+        Abrir en Telegram
+      </a>
+    </div>
+
+  </div>
+</div>

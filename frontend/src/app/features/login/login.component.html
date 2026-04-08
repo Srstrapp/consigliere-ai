@@ -1,0 +1,113 @@
+<div class="login-root">
+  <!-- Background orbs -->
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="grid-overlay"></div>
+
+  <!-- Card -->
+  <div class="login-card">
+    <!-- Brand -->
+    <div class="brand">
+      <div class="brand-icon">
+        <lucide-icon [name]="Brain" class="icon-brain"></lucide-icon>
+      </div>
+      <div>
+        <h1 class="brand-name">Consigliere</h1>
+        <p class="brand-tagline">Tu consejero de cabecera</p>
+      </div>
+    </div>
+
+    <!-- Title -->
+    <div class="form-header">
+      <h2 class="form-title">{{ isLogin ? 'Bienvenido de nuevo' : 'Crear cuenta' }}</h2>
+      <p class="form-subtitle">
+        {{ isLogin ? 'Ingresá para ver tu dashboard' : 'Empezá a usar Consigliere hoy' }}
+      </p>
+    </div>
+
+    <!-- Error/Success -->
+    @if (error()) {
+      <div class="alert" [class.alert-success]="error().startsWith('✅')">
+        {{ error() }}
+      </div>
+    }
+
+    <!-- Form -->
+    <form (ngSubmit)="submit()" class="form">
+
+      <!-- Nombre (solo register) -->
+      @if (!isLogin) {
+        <div class="field">
+          <label class="label">Nombre completo</label>
+          <div class="input-wrapper">
+            <lucide-icon [name]="User" class="input-icon"></lucide-icon>
+            <input
+              type="text"
+              class="input"
+              placeholder="Jhon Doe"
+              [(ngModel)]="nombre"
+              name="nombre"
+              autocomplete="name"
+            />
+          </div>
+        </div>
+      }
+
+      <!-- Email -->
+      <div class="field">
+        <label class="label">Email</label>
+        <div class="input-wrapper">
+          <lucide-icon [name]="Mail" class="input-icon"></lucide-icon>
+          <input
+            type="email"
+            class="input"
+            placeholder="vos@email.com"
+            [(ngModel)]="email"
+            name="email"
+            autocomplete="email"
+            required
+          />
+        </div>
+      </div>
+
+      <!-- Password -->
+      <div class="field">
+        <label class="label">Contraseña</label>
+        <div class="input-wrapper">
+          <lucide-icon [name]="Lock" class="input-icon"></lucide-icon>
+          <input
+            [type]="showPassword() ? 'text' : 'password'"
+            class="input"
+            placeholder="••••••••"
+            [(ngModel)]="password"
+            name="password"
+            autocomplete="current-password"
+            required
+          />
+          <button type="button" class="eye-btn" (click)="togglePassword()">
+            <lucide-icon [name]="showPassword() ? EyeOff : Eye" class="eye-icon"></lucide-icon>
+          </button>
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <button type="submit" class="submit-btn" [disabled]="loading()">
+        @if (loading()) {
+          <lucide-icon [name]="Loader" class="spin"></lucide-icon>
+          <span>{{ isLogin ? 'Iniciando sesión...' : 'Creando cuenta...' }}</span>
+        } @else {
+          <span>{{ isLogin ? 'Iniciar sesión' : 'Crear cuenta' }}</span>
+          <lucide-icon [name]="ArrowRight"></lucide-icon>
+        }
+      </button>
+    </form>
+
+    <!-- Toggle mode -->
+    <p class="toggle-text">
+      {{ isLogin ? '¿No tenés cuenta?' : '¿Ya tenés cuenta?' }}
+      <button type="button" class="toggle-btn" (click)="toggleMode()">
+        {{ isLogin ? 'Registrate' : 'Iniciá sesión' }}
+      </button>
+    </p>
+  </div>
+</div>

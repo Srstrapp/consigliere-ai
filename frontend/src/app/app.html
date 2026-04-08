@@ -1,0 +1,236 @@
+<div class="flex h-screen w-full overflow-hidden">
+  <!-- Ghost Sidebar -->
+  <aside class="w-64 bg-onyx-900 border-r border-white/5 flex flex-col p-6 space-y-8">
+    <div class="flex items-center space-x-3 mb-4">
+      <div class="w-8 h-8 bg-aurora-500 rounded-lg flex items-center justify-center shadow-glow">
+        <lucide-icon [name]="Brain" class="w-5 h-5 text-white"></lucide-icon>
+      </div>
+      <span class="font-display font-bold text-xl text-white tracking-tight">Consigliere</span>
+    </div>
+
+    <nav class="flex-1 space-y-2">
+      <div 
+        (click)="setDomain('dashboard')"
+        class="nav-item" 
+        [ngClass]="{'active': activeDomain === 'dashboard'}">
+        <lucide-icon [name]="LayoutDashboard" class="w-5 h-5"></lucide-icon>
+        <span class="font-medium">Dashboard</span>
+      </div>
+
+      <div class="pt-6 pb-2 text-[10px] uppercase tracking-widest font-bold text-silk-500 px-4">Modulos</div>
+
+      <div 
+        (click)="setDomain('finance')"
+        class="nav-item" 
+        [ngClass]="{'active': activeDomain === 'finance'}">
+        <lucide-icon [name]="Wallet" class="w-5 h-5"></lucide-icon>
+        <span class="font-medium">Finanzas</span>
+      </div>
+
+      <div 
+        (click)="setDomain('metanoia')"
+        class="nav-item" 
+        [ngClass]="{'active': activeDomain === 'metanoia'}">
+        <lucide-icon [name]="Brain" class="w-5 h-5"></lucide-icon>
+        <span class="font-medium">Psicólogo</span>
+      </div>
+
+      <div 
+        (click)="setDomain('legal')"
+        class="nav-item" 
+        [ngClass]="{'active': activeDomain === 'legal'}">
+        <lucide-icon [name]="Scale" class="w-5 h-5"></lucide-icon>
+        <span class="font-medium">Legal</span>
+      </div>
+    </nav>
+
+    <div class="pt-6 border-t border-white/5 space-y-2">
+      <div class="nav-item">
+        <lucide-icon [name]="Settings" class="w-5 h-5"></lucide-icon>
+        <span class="font-medium">Ajustes</span>
+      </div>
+      <div class="nav-item text-red-400/70 hover:text-red-400 hover:bg-red-400/5">
+        <lucide-icon [name]="LogOut" class="w-5 h-5"></lucide-icon>
+        <span class="font-medium">Salir</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Canvas -->
+  <main class="flex-1 overflow-y-auto p-8 relative">
+    <!-- Top Header -->
+    <header class="flex justify-between items-center mb-10">
+      <div>
+        <h1 class="text-3xl">Buenos días, <span class="text-aurora-500">Sr. Mercado</span></h1>
+        <p class="text-silk-500 mt-1">Tu Consigliere tiene 3 actualizaciones para hoy.</p>
+      </div>
+
+      <div class="flex items-center space-x-4">
+        <div class="glass-card flex items-center px-4 py-2 space-x-3 cursor-pointer">
+          <lucide-icon [name]="Search" class="w-4 h-4 text-silk-500"></lucide-icon>
+          <span class="text-sm text-silk-500">Command + K</span>
+        </div>
+        <div class="relative">
+          <lucide-icon [name]="Bell" class="w-6 h-6 text-silk-500 cursor-pointer hover:text-white transition-colors"></lucide-icon>
+          <span class="absolute -top-1 -right-1 w-2 h-2 bg-aurora-500 rounded-full"></span>
+        </div>
+        <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-aurora-500 to-indigo-800 p-[1px]">
+          <div class="w-full h-full rounded-full bg-onyx-900 flex items-center justify-center overflow-hidden">
+             <!-- Avatar Placeholder -->
+             <span class="text-xs font-bold text-white">JM</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Bento Dashboard Grid -->
+    <div class="grid grid-cols-12 grid-rows-6 gap-6 h-[800px]">
+      
+      <!-- Finance Widget (Main) -->
+      <div class="col-span-8 row-span-4 glass-card p-8 flex flex-col justify-between overflow-hidden relative">
+        <!-- Shine effect -->
+        <div class="absolute -top-20 -right-20 w-64 h-64 bg-aurora-500/5 blur-[100px]"></div>
+        
+        <div class="flex justify-between items-start">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-widest text-silk-500">The Vault</span>
+            <h2 class="text-2xl mt-1">Flujo de Efectivo</h2>
+          </div>
+          <div class="text-right">
+            <span class="text-4xl font-display font-bold text-white">$12,450.80</span>
+            <p class="text-xs text-green-400 mt-1">+12.5% este mes</p>
+          </div>
+        </div>
+
+        <!-- Chart Placeholder (Simple SVG for prototype) -->
+        <div class="flex-1 mt-8 flex items-end space-x-2">
+          <div class="flex-1 bg-white/5 h-32 rounded-lg relative overflow-hidden group cursor-pointer hover:bg-aurora-500/20 transition-all">
+            <div class="absolute bottom-0 w-full bg-aurora-500/30 h-1/2 group-hover:h-2/3 transition-all duration-700"></div>
+          </div>
+          <div class="flex-1 bg-white/5 h-40 rounded-lg relative overflow-hidden group cursor-pointer hover:bg-aurora-500/20 transition-all">
+            <div class="absolute bottom-0 w-full bg-aurora-500/30 h-1/3 group-hover:h-1/2 transition-all duration-700"></div>
+          </div>
+          <div class="flex-1 bg-white/5 h-48 rounded-lg relative overflow-hidden group cursor-pointer hover:bg-aurora-500/20 transition-all">
+            <div class="absolute bottom-0 w-full bg-aurora-500/30 h-3/4 group-hover:h-4/5 transition-all duration-700"></div>
+          </div>
+          <div class="flex-1 bg-white/5 h-24 rounded-lg relative overflow-hidden group cursor-pointer hover:bg-aurora-500/20 transition-all">
+            <div class="absolute bottom-0 w-full bg-aurora-500/30 h-1/4 group-hover:h-1/3 transition-all duration-700"></div>
+          </div>
+          <div class="flex-1 bg-white/5 h-56 rounded-lg relative overflow-hidden group cursor-pointer hover:bg-aurora-500/20 transition-all border border-aurora-500/20 shadow-glow">
+            <div class="absolute bottom-0 w-full bg-aurora-500 h-full"></div>
+          </div>
+        </div>
+
+        <div class="mt-8 flex justify-between items-center border-t border-white/5 pt-6">
+          <div class="flex -space-x-2">
+             <div class="w-8 h-8 rounded-full bg-onyx-700 border border-white/10 flex items-center justify-center text-[10px] text-white">AM</div>
+             <div class="w-8 h-8 rounded-full bg-onyx-700 border border-white/10 flex items-center justify-center text-[10px] text-white">VZ</div>
+             <div class="w-8 h-8 rounded-full bg-onyx-700 border border-white/10 flex items-center justify-center text-[10px] text-white">+3</div>
+          </div>
+          <button class="premium-button flex items-center space-x-2">
+            <lucide-icon [name]="Plus" class="w-4 h-4"></lucide-icon>
+            <span>Nuevo Gasto</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Metanoia Widget (Emotional Pulse) -->
+      <div class="col-span-4 row-span-3 glass-card p-8 flex flex-col items-center justify-center text-center overflow-hidden relative">
+        <div class="absolute inset-0 bg-gradient-to-b from-indigo-500/5 to-transparent"></div>
+        
+        <div class="relative w-48 h-48 mb-6 group cursor-pointer">
+          <!-- The Orb (SVG Animated) -->
+          <svg viewBox="0 0 200 200" class="w-full h-full drop-shadow-[0_0_25px_rgba(99,102,241,0.2)]">
+            <defs>
+              <radialGradient id="orbGradient" cx="50%" cy="50%" r="50%" fx="25%" fy="25%">
+                <stop offset="0%" stop-color="#818cf8" />
+                <stop offset="100%" stop-color="#4338ca" />
+              </radialGradient>
+            </defs>
+            <circle cx="100" cy="100" r="80" fill="url(#orbGradient)" class="animate-pulse">
+               <animate attributeName="r" values="78;82;78" dur="4s" repeatCount="indefinite" />
+            </circle>
+          </svg>
+          <div class="absolute inset-0 flex items-center justify-center">
+            <lucide-icon [name]="Brain" class="w-12 h-12 text-white/40"></lucide-icon>
+          </div>
+        </div>
+
+        <h3 class="text-xl">Pulso Emocional</h3>
+        <p class="text-silk-500 mt-2 text-sm px-4">Detecto un enfoque productivo. Tu energía está al 85%.</p>
+        
+        <div class="w-full mt-6 h-1 bg-white/5 rounded-full overflow-hidden">
+          <div class="h-full bg-aurora-500 w-[85%]"></div>
+        </div>
+      </div>
+
+      <!-- Recent Transactions (Bento Small) -->
+      <div class="col-span-4 row-span-3 glass-card p-6 overflow-hidden">
+        <div class="flex justify-between items-center mb-6">
+          <h3 class="text-lg">Tickets Digitales</h3>
+          <span class="text-xs text-aurora-500 cursor-pointer">Ver todo</span>
+        </div>
+
+        <div class="space-y-4">
+          <!-- Luxury Digital Receipt Item -->
+          <div class="flex justify-between items-center group cursor-pointer">
+            <div class="flex items-center space-x-3">
+              <div class="w-10 h-10 bg-white/5 rounded-lg flex items-center justify-center group-hover:bg-white/10 transition-colors">
+                <lucide-icon [name]="Wallet" class="w-5 h-5 text-silk-400"></lucide-icon>
+              </div>
+              <div>
+                <p class="text-sm text-white font-bold tracking-tight">Farmatodo S.A.</p>
+                <p class="text-[10px] text-silk-500 uppercase tracking-widest">Salud • 2m ago</p>
+              </div>
+            </div>
+            <span class="text-sm font-display font-bold text-white">$45.00</span>
+          </div>
+
+          <div class="flex justify-between items-center group cursor-pointer">
+            <div class="flex items-center space-x-3">
+              <div class="w-10 h-10 bg-white/5 rounded-lg flex items-center justify-center group-hover:bg-white/10 transition-colors">
+                <lucide-icon [name]="Wallet" class="w-5 h-5 text-silk-400"></lucide-icon>
+              </div>
+              <div>
+                <p class="text-sm text-white font-bold tracking-tight">Starbucks Reserve</p>
+                <p class="text-[10px] text-silk-500 uppercase tracking-widest">Comida • 1h ago</p>
+              </div>
+            </div>
+            <span class="text-sm font-display font-bold text-white">$12.50</span>
+          </div>
+
+          <div class="flex justify-between items-center group cursor-pointer">
+            <div class="flex items-center space-x-3">
+              <div class="w-10 h-10 bg-white/5 rounded-lg flex items-center justify-center group-hover:bg-white/10 transition-colors">
+                <lucide-icon [name]="Wallet" class="w-5 h-5 text-silk-400"></lucide-icon>
+              </div>
+              <div>
+                <p class="text-sm text-white font-bold tracking-tight">Chevron Service</p>
+                <p class="text-[10px] text-silk-500 uppercase tracking-widest">Transporte • 4h ago</p>
+              </div>
+            </div>
+            <span class="text-sm font-display font-bold text-white">$65.00</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Legal Widget -->
+      <div class="col-span-8 row-span-2 glass-card p-8 flex items-center space-x-8 overflow-hidden relative">
+        <div class="absolute top-0 right-0 w-32 h-32 bg-silk-500/5 rotate-45 transform translate-x-16 -translate-y-16 border-l border-white/5"></div>
+        
+        <div class="w-20 h-20 bg-white/5 rounded-2xl flex items-center justify-center">
+          <lucide-icon [name]="Scale" class="w-10 h-10 text-silk-500"></lucide-icon>
+        </div>
+
+        <div class="flex-1">
+          <span class="text-xs font-bold uppercase tracking-widest text-silk-500">Legal Library</span>
+          <h3 class="text-xl mt-1">Acuerdo de Servicios de Software</h3>
+          <p class="text-sm text-silk-500 mt-2 line-clamp-2">"La cláusula de propiedad intelectual en el contrato SaaS propuesto protege tus activos pero requiere una revisión en la sección de..."</p>
+        </div>
+
+        <button class="glass-card px-6 py-3 text-sm font-bold hover:bg-white/10">Leer Análisis</button>
+      </div>
+
+    </div>
+  </main>
+</div>
