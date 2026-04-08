@@ -69,7 +69,7 @@ class BaseHandler(ABC):
 # ==================== COMMAND HANDLERS ====================
 
 class StartCommandHandler(BaseHandler):
-    """Handler para /start - Registro y bienvenida estilo Padrino"""
+    """Handler para /start - Registro y bienvenida"""
     
     async def execute(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user = update.effective_user
@@ -89,31 +89,34 @@ class StartCommandHandler(BaseHandler):
         tiene_auth = db_user.get("auth_user_id") is not None
         
         if es_nuevo or not tiene_auth:
+            # Usuario nuevo - pedir registro
             await self.reply(update, f"""👋 *Hola, {user.first_name}!*
 
-Soy tu Consigliere y te ayudo con:
+Soy Consigliere, tu asistente para:
 
-💰 *Finanzas* → Registrar gastos, configurar presupuestos, crear metas de ahorro
-🧠 *Bienestar* → Estrés, motivación, cómo estás emocionalmente  
-⚖️ *Legal* → Dudas legales en palabras simples
+💰 *Finanzas* → Gastos, presupuestos, metas de ahorro
+🧠 *Bienestar* → Estrés, motivación, cómo estás  
+⚖️ *Legal* → Dudas legales simples
 
-📌 *Para empezar* → Registrate en el Dashboard:
+📌 *Para usar el bot*, registrate primero aquí:
 🔗 {dashboard_url}
 
-✅ Una vez registrado, volvé al bot y charlamos de tus números 💵""")
+✅ Una vez registrado, volvé al bot y charlamos 💪""")
 
         else:
-            # Usuario ya registrado, mostrar menú claro
+            # Usuario ya registrado - mostrar menú
             nombre_usuario = db_user.get("nombre") or user.first_name
+            presupuesto = db_user.get("presupuesto_mensual", 1000)
+            
             await self.reply(update, f"""👋 *Hola, {nombre_usuario}!*
 
 💵 Tu presupuesto: ${presupuesto:.0f}/mes
 
-¿Qué necesitás? Elegí una opción:
+¿Qué necesitás?
 
 💸 → Registrar un gasto
-💰 → Ver o cambiar presupuesto  
-🎯 → Crear una meta de ahorro
+💰 → Cambiar presupuesto  
+🎯 → Crear una meta
 🧠 → Hablar de cómo estás
 ⚖️ → Duda legal
 
@@ -372,15 +375,27 @@ class MessageRouter:
         if not db_user:
             db_user = UserRepository.create(user.id, user.first_name)
         
-        # 1.5. Si presupuesto = 0, usar default sin interrumpir la conversación
-        # El usuario puede usar el bot sin tener presupuesto configurado
+        # 1.5. Verificar si NO tiene auth vinculada - pedir registro
+        tiene_auth = db_user.get("auth_user_id") is not None
+        if not tiene_auth:
+            # Generar token y link de registro
+            token = LoginTokenRepository.create(user.id)
+            dashboard_url = f"{settings.dashboard_url}/auth?token={token}"
+            
+            await update.message.reply_text(
+                f"👋 *Hola, {user.first_name}!*\n\n"
+                f"Para usar Consigliere necesitás registrarte.\n\n"
+                f"📌 *Registro:* {dashboard_url}\n\n"
+                f"Una vez hecho, volvé al bot y seguimos 💪",
+                parse_mode="Markdown"
+            )
+            return
+        
+        # 1.6. Si presupuesto = 0, usar default sin interrumpir la conversación
         presupuesto = db_user.get("presupuesto_mensual", 0)
         if presupuesto == 0:
-            # Silenciosamente asignar presupuesto default de 1000 para que fluya la conversación
-            # El usuario puede cambiarlo después si quiere
             UserRepository.update_presupuesto(db_user["id"], 1000)
             presupuesto = 1000
-            # Actualizar el objeto db_user con el nuevo valor
             db_user["presupuesto_mensual"] = 1000
         
         # 2. Detectar intención (usa TOML)
@@ -396,6 +411,12 @@ class MessageRouter:
         # 4. Obtener contexto filtrado por dominio
         conv_result = ConversationRepository.get_by_dominio(db_user["id"], dominio)
         contexto = conv_result["messages"] if conv_result else []
+        
+        # 5. Ejecutar handler apropiado
+        handler = self._handlers.get(intención, self._handlers["general"])
+        
+        # Pasar dominio y contexto como kwargs al handler
+        await handler(update, mensaje, db_user, dominio=dominio, contexto=contexto)
         
         # 5. Ejecutar handler apropiado
         handler = self._handlers.get(intención, self._handlers["general"])
