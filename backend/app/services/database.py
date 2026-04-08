@@ -9,23 +9,35 @@ from ..config import get_settings
 
 class SupabaseClient:
     """Cliente de Supabase - single responsibility: DB operations"""
-    
+
     _instance: Optional[Client] = None
-    
+    _service_instance: Optional[Client] = None
+
     @classmethod
     def get_instance(cls) -> Client:
-        """Singleton del cliente de Supabase"""
+        """Singleton del cliente de Supabase (anon key - para operaciones de lectura)"""
         if cls._instance is None:
             settings = get_settings()
             if not settings.supabase_url or not settings.supabase_anon_key:
                 raise ValueError("SUPABASE_URL y SUPABASE_ANON_KEY son requeridos")
             cls._instance = create_client(settings.supabase_url, settings.supabase_anon_key)
         return cls._instance
-    
+
+    @classmethod
+    def get_service_instance(cls) -> Client:
+        """Singleton del cliente de Supabase con Service Role Key (bypass RLS)"""
+        if cls._service_instance is None:
+            settings = get_settings()
+            if not settings.supabase_url or not settings.supabase_service_role_key:
+                raise ValueError("SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY son requeridos para operaciones administrativas")
+            cls._service_instance = create_client(settings.supabase_url, settings.supabase_service_role_key)
+        return cls._service_instance
+
     @classmethod
     def reset_instance(cls) -> None:
         """Reset para testing"""
         cls._instance = None
+        cls._service_instance = None
 
 
 class UserRepository:
