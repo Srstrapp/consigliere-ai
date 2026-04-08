@@ -89,31 +89,37 @@ class StartCommandHandler(BaseHandler):
         tiene_auth = db_user.get("auth_user_id") is not None
         
         if es_nuevo or not tiene_auth:
-            await self.reply(update, f"""🎬 *Bienvenido a Consigliere AI, {user.first_name}*...
+            await self.reply(update, f"""👋 *Hola, {user.first_name}!*
 
-*Un consigliere no trabaja con cualquiera.*
-Antes de continuar, necesito conocerte properly.
+Soy tu Consigliere y te ayudo con:
 
-🖥️ *Tu primer paso:* Accedé al Dashboard para registrarte:
-{dashboard_url}
+💰 *Finanzas* → Registrar gastos, configurar presupuestos, crear metas de ahorro
+🧠 *Bienestar* → Estrés, motivación, cómo estás emocionalmente  
+⚖️ *Legal* → Dudas legales en palabras simples
 
-_(Este link es tu llave de entrada. Sin él, no podemos proceder.)_
+📌 *Para empezar* → Registrate en el Dashboard:
+🔗 {dashboard_url}
 
-Una vez registrado, volvé y we'll negocios.""")
+✅ Una vez registrado, volvé al bot y charlamos de tus números 💵""")
+
         else:
-            # Usuario ya registrado, ofrecer servicios
+            # Usuario ya registrado, mostrar menú claro
             nombre_usuario = db_user.get("nombre") or user.first_name
-            await self.reply(update, f"""👋 *Buenas, {nombre_usuario}*
+            await self.reply(update, f"""👋 *Hola, {nombre_usuario}!*
 
-¿En qué puedo ayudarte hoy?
+💵 Tu presupuesto: ${presupuesto:.0f}/mes
 
-💰 *Finanzas* - Tus números, tu negocio
-🧠 *Mente* - Cuando la cabeza no ayuda
-⚖️ *Legal* - Para esos papeles que dan dolor de cabeza
+¿Qué necesitás? Elegí una opción:
 
-Elegí tu camino y te guío.""")
+💸 → Registrar un gasto
+💰 → Ver o cambiar presupuesto  
+🎯 → Crear una meta de ahorro
+🧠 → Hablar de cómo estás
+⚖️ → Duda legal
 
+O simplemente escribí lo que necesites 😊""")
 
+        
         # Limpiar mensaje pendiente si existe
         if db_user.get("mensaje_pendiente"):
             UserRepository.clear_mensaje_pendiente(db_user["id"])
