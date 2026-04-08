@@ -38,6 +38,13 @@ class UserRepository:
         return result.data[0] if result.data else None
     
     @staticmethod
+    def get_by_id(user_id: str) -> Optional[Dict]:
+        """Obtener usuario por ID"""
+        client = SupabaseClient.get_instance()
+        result = client.table("users").select("*").eq("id", user_id).execute()
+        return result.data[0] if result.data else None
+    
+    @staticmethod
     def create(telegram_id: int, nombre: Optional[str] = None) -> Dict:
         client = SupabaseClient.get_instance()
         
@@ -50,7 +57,7 @@ class UserRepository:
         result = client.table("users").insert({
             "telegram_id": telegram_id,
             "nombre": nombre,
-            "presupuesto_mensual": 0  # Default - el bot preguntará al usuario
+            "presupuesto_mensual": 1000  # Default para que no tenga que pedirlo
         }).execute()
         return result.data[0]
     
@@ -256,11 +263,26 @@ class LoginTokenRepository:
     @staticmethod
     def create(telegram_id: int) -> str:
         """Crear token de login válido 1 hora y retornar el token string"""
+        import uuid
         client = SupabaseClient.get_instance()
+        
+        # Generar token único
+        token = str(uuid.uuid4())
+        
+        # Insertar con user_id (no telegram_id)
+        from datetime import datetime, timedelta
+        expires = datetime.utcnow() + timedelta(hours=1)
+        
+        # Primero buscar el user_id por telegram_id
+        user = UserRepository.get_by_telegram(telegram_id)
+        user_id = user["id"] if user else None
+        
         result = client.table("login_tokens").insert({
-            "telegram_id": telegram_id
+            "user_id": user_id,
+            "token_hash": token,
+            "expires_at": expires.isoformat()
         }).execute()
-        return result.data[0]["token"]
+        return token
 
     @staticmethod
     def validate(token: str) -> Optional[Dict]:
@@ -269,8 +291,8 @@ class LoginTokenRepository:
         result = (
             client.table("login_tokens")
             .select("*")
-            .eq("token", token)
-            .eq("used", False)
+            .eq("token_hash", token)
+            .eq("is_used", False)
             .gt("expires_at", "now()")
             .single()
             .execute()
@@ -281,8 +303,8 @@ class LoginTokenRepository:
         token_data = result.data
 
         # Marcar como usado
-        client.table("login_tokens").update({"used": True}).eq("id", token_data["id"]).execute()
+        client.table("login_tokens").update({"is_used": True}).eq("id", token_data["id"]).execute()
 
         # Buscar usuario
-        user = UserRepository.get_by_telegram(token_data["telegram_id"])
+        user = UserRepository.get_by_id(token_data["user_id"])
         return user
