@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     # App
     app_name: str = "Consigliere AI"
     debug: bool = True
-    dashboard_url: str = "http://localhost:4200"
+    dashboard_url: str = "https://consigliere.up.railway.app/login"
     
     # Supabase Service Role Key (para crear auth users desde el bot)
     supabase_service_role_key: Optional[str] = None
