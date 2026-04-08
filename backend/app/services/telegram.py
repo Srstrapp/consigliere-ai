@@ -610,19 +610,53 @@ class MessageRouter:
         )
     
     async def _handle_general(self, update: Update, mensaje: str, db_user: dict, dominio: str = "general", contexto: list = None) -> None:
-        """Handler para mensajes generales - usa TOML modo system"""
-        # Usar contexto pasado como parámetro
+        """Handler para mensajes generales - detecta gastos/ingresos automáticamente"""
+        # Primero intentar detectar si es un gasto o ingreso oculto
+        mensaje_lower = mensaje.lower()
+        
+        # Detectar gastos en mensajes generales
+        if any(p in mensaje_lower for p in ["gasté", "gaste", "pagué", "pague", "compré", "compré", "花费", "gasto de"]):
+            try:
+                datos: GastoData = await self._ia_service.analizar(mensaje)
+                if datos.monto > 0:
+                    ExpenseRepository.create(db_user["id"], datos.monto, datos.categoria, datos.desc or mensaje)
+                    moneda_emoji = "💵" if datos.moneda == "USD" else "💲"
+                    await update.message.reply_text(
+                        f"✅ *Gasto registrado*\n\n{moneda_emoji} {datos.moneda} {datos.monto:.2f}\n📂 {datos.categoria}",
+                        parse_mode="Markdown"
+                    )
+                    return
+            except:
+                pass  # Si falla, continuar con chat normal
+        
+        # Detectar ingresos en mensajes generales
+        if any(p in mensaje_lower for p in ["recibí", "recibi", "gané", "gane", "cobré", "cobré", "ingreso", "salario", "pago de"]):
+            try:
+                from .deepseek import IngresoData
+                datos: IngresoData = await self._ia_service.analizar_ingreso(mensaje)
+                if datos.monto > 0:
+                    IncomeRepository.create(db_user["id"], datos.monto, datos.moneda, datos.fuente, datos.desc or mensaje)
+                    moneda_emoji = "💵" if datos.moneda == "USD" else "💲"
+                    await update.message.reply_text(
+                        f"✅ *Ingreso registrado*\n\n{moneda_emoji} {datos.moneda} {datos.monto:.2f}\n📥 Fuente: {datos.fuente}",
+                        parse_mode="Markdown"
+                    )
+                    return
+            except:
+                pass  # Si falla, continuar con chat normal
+        
+        # Si no detectó gasto/ingreso, usar chat normal
         if contexto is None:
             conv = ConversationRepository.get_by_dominio(db_user["id"], dominio)
             contexto = conv["messages"] if conv else []
         
         try:
-            # Usa modo system (default) desde TOML
             respuesta = await self._ia_service.chat(mensaje, contexto, modo="system")
-        except IAResponseError:
-            respuesta = "Disculpa, tuve un problema. Intentá de nuevo."
+            if len(respuesta) > 4000:
+                respuesta = respuesta[:4000] + "\n\n...(respuesta truncada)"
+        except Exception as e:
+            respuesta = f"Entendido. Puedo ayudarte con:\n\n💰 *Gastos* - 'gasté 50 dólares en comida'\n💵 *Ingresos* - 'recibí 800 de salario'\n📊 *Presupuesto* - 'mi presupuesto es 1000'\n🎯 *Metas* - 'quiero ahorrar para auto'\n🧠 *Bienestar* - 'estoy estresado'\n\n¿En qué te ayudo?"
         
-        # Guardar conversación con dominio específico
         contexto.append({"role": "user", "content": mensaje})
         contexto.append({"role": "assistant", "content": respuesta})
         ConversationRepository.save(db_user["id"], contexto[-10:], dominio=dominio)
