@@ -365,6 +365,7 @@ class MessageRouter:
         """Procesar mensaje entrante"""
         user = update.effective_user
         mensaje = update.message.text
+        mensaje_lower = mensaje.lower()
         
         # Verificar si quiere cambiar presupuesto
         if self._es_cambio_presupuesto(mensaje):
@@ -382,10 +383,8 @@ class MessageRouter:
         # 1.5. Verificar si NO tiene auth vinculada - pedir registro
         tiene_auth = db_user.get("auth_user_id") is not None
         if not tiene_auth:
-            # Generar token y link de registro
             token = LoginTokenRepository.create(user.id)
             dashboard_url = f"{settings.dashboard_url}/auth?token={token}"
-            
             await update.message.reply_text(
                 f"👋 *Hola, {user.first_name}!*\n\n"
                 f"Para usar Consigliere necesitás registrarte.\n\n"
@@ -395,36 +394,56 @@ class MessageRouter:
             )
             return
         
-        # 1.6. Si presupuesto = 0, usar default sin interrumpir la conversación
+        # 1.6. Default presupuesto
         presupuesto = db_user.get("presupuesto_mensual", 0)
         if presupuesto == 0:
             UserRepository.update_presupuesto(db_user["id"], 1000)
             presupuesto = 1000
             db_user["presupuesto_mensual"] = 1000
         
-        # 2. Detectar intención (usa TOML)
+        # 2. DETECCIÓN RÁPIDA DE GASTOS/INGRESOS (hardcoded keywords)
+        # Estas palabras clave siempre disparan el handler correspondiente
+        palabras_gasto = ["gasté", "gaste", "pagué", "pague", "compré", "compre", "anotar", "registrar gasto", "gasto de", "gasto:"]
+        palabras_ingreso = ["recibí", "recibi", "gané", "gane", "cobré", "cobré", "ingreso", "salario", "anotar ingreso", "registrar ingreso"]
+        
+        # Si contiene keywords de gasto → handler gasto
+        if any(p in mensaje_lower for p in palabras_gasto):
+            await self._handle_gasto(update, mensaje, db_user, dominio="finanzas", contexto=[])
+            return
+        
+        # Si contiene keywords de ingreso → handler ingreso
+        if any(p in mensaje_lower for p in palabras_ingreso):
+            await self._handle_ingreso(update, mensaje, db_user, dominio="finanzas", contexto=[])
+            return
+        
+        # 3. Detectar intención con IA (solo para mensajes sin keywords claros)
         try:
             intención_data = await self._ia_service.detectar_intención(mensaje)
             intención = intención_data.intencion
         except IAResponseError:
             intención = "general"
         
-        # 3. Obtener dominio basado en intención
+        # 4. Obtener dominio basado en intención
         dominio = INTENCION_A_DOMINIO.get(intención, "general")
         
-        # 4. Obtener contexto filtrado por dominio
+        # 5. Obtener contexto LIMPIO (solo últimos 2 mensajes, max 200 chars)
         conv_result = ConversationRepository.get_by_dominio(db_user["id"], dominio)
-        contexto = conv_result["messages"] if conv_result else []
+        contexto_limpio = []
+        if conv_result and conv_result.get("messages"):
+            # Solo los últimos 2 mensajes
+            msgs = conv_result["messages"][-2:] if len(conv_result["messages"]) > 2 else conv_result["messages"]
+            for m in msgs:
+                # Truncar contenido a 200 chars
+                content = m.get("content", "")[:200]
+                contexto_limpio.append({"role": m.get("role", "user"), "content": content})
         
-        # 5. Ejecutar handler apropiado
+        # 6. Ejecutar handler apropiado
         handler = self._handlers.get(intención, self._handlers["general"])
         
-        # Pasar dominio y contexto como kwargs al handler
         try:
-            await handler(update, mensaje, db_user, dominio=dominio, contexto=contexto)
+            await handler(update, mensaje, db_user, dominio=dominio, contexto=contexto_limpio)
         except Exception as e:
-            # Si falla el handler, responder brevemente
-            await update.message.reply_text("Tuve un problema procesando tu mensaje. Probá de nuevo.", parse_mode="Markdown")
+            await update.message.reply_text("Tuve un problema. Probá de nuevo.", parse_mode="Markdown")
     
     def _es_cambio_presupuesto(self, mensaje: str) -> bool:
         """Detectar si el mensaje es para cambiar presupuesto"""
