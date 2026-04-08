@@ -124,15 +124,31 @@ export class AuthService {
   }
 
   async signUp(email: string, password: string, nombre: string): Promise<void> {
-    const { data, error } = await this.sb.client.auth.signUp({ email, password });
+    const { data, error } = await this.sb.client.auth.signUp({ 
+      email, 
+      password,
+      options: {
+        data: {
+          full_name: nombre
+        }
+      }
+    });
     if (error) throw error;
 
     if (data.user) {
+      // Crear en tabla usuarios (admin/ERP)
       await this.sb.client.from('usuarios').insert({
         id: data.user.id,
         email,
         nombre,
         rol: 'usuario',
+      });
+
+      // Crear en tabla users (bot) vinculado por auth_user_id
+      await this.sb.client.from('users').insert({
+        auth_user_id: data.user.id,
+        nombre: nombre,
+        presupuesto_mensual: 1000, // Default
       });
     }
   }

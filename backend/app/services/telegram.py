@@ -69,7 +69,7 @@ class BaseHandler(ABC):
 # ==================== COMMAND HANDLERS ====================
 
 class StartCommandHandler(BaseHandler):
-    """Handler para /start - Registro y bienvenida"""
+    """Handler para /start - Registro y bienvenida estilo Padrino"""
     
     async def execute(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user = update.effective_user
@@ -85,29 +85,38 @@ class StartCommandHandler(BaseHandler):
         token = LoginTokenRepository.create(user.id)
         dashboard_url = f"{settings.dashboard_url}/auth?token={token}"
         
-        if es_nuevo:
-            await self.reply(update, f"""🎯 *Bienvenido a Consigliere AI, {user.first_name}!*
+        # Verificar si ya tiene auth vinculada
+        tiene_auth = db_user.get("auth_user_id") is not None
+        
+        if es_nuevo or not tiene_auth:
+            await self.reply(update, f"""🎬 *Bienvenido a Consigliere AI, {user.first_name}*...
 
-Tu asistente personal para:
+*Un consigliere no trabaja con cualquiera.*
+Antes de continuar, necesito conocerte properly.
 
-💰 *Finanzas* - Registrá gastos, analizá tu dinero
-🧠 *Psicología* - Apoyo emocional y motivación  
-⚖️ *Legal* - Consultas en lenguaje sencillo
-
-*Antes de empezar:* ¿Cuál es tu presupuesto mensual?
-Escribí el número, ej: `2000`
-
-🖥️ También podés acceder a tu *Dashboard Web*:
+🖥️ *Tu primer paso:* Accedé al Dashboard para registrarte:
 {dashboard_url}
-_(link válido por 1 hora)_""")
+
+_(Este link es tu llave de entrada. Sin él, no podemos proceder.)_
+
+Una vez registrado, volvé y we'll negocios.""")
         else:
-            await self.reply(update, f"""👋 *Hola de nuevo, {user.first_name}!*
+            # Usuario ya registrado, ofrecer servicios
+            nombre_usuario = db_user.get("nombre") or user.first_name
+            await self.reply(update, f"""👋 *Buenas, {nombre_usuario}*
 
-🖥️ Accedé a tu *Dashboard Web*:
-{dashboard_url}
-_(link válido por 1 hora)_
+¿En qué puedo ayudarte hoy?
 
-¿En qué te puedo ayudar hoy?""")
+💰 *Finanzas* - Tus números, tu negocio
+🧠 *Mente* - Cuando la cabeza no ayuda
+⚖️ *Legal* - Para esos papeles que dan dolor de cabeza
+
+Elegí tu camino y te guío.""")
+
+
+        # Limpiar mensaje pendiente si existe
+        if db_user.get("mensaje_pendiente"):
+            UserRepository.clear_mensaje_pendiente(db_user["id"])
 
 
 
@@ -357,15 +366,16 @@ class MessageRouter:
         if not db_user:
             db_user = UserRepository.create(user.id, user.first_name)
         
-        # 1.5. Si presupuesto = 0, preguntar presupuesto y guardar mensaje para procesar después
-        if db_user.get("presupuesto_mensual", 0) == 0:
-            # Guardar el mensaje original para procesar después
-            UserRepository.set_mensaje_pendiente(db_user["id"], mensaje)
-            await update.message.reply_text(
-                "👋 ¡Hola! Primero necesito saber tu presupuesto mensual.\n\n"
-                "¿Cuál es tu presupuesto mensual? (ej: 2000)"
-            )
-            return
+        # 1.5. Si presupuesto = 0, usar default sin interrumpir la conversación
+        # El usuario puede usar el bot sin tener presupuesto configurado
+        presupuesto = db_user.get("presupuesto_mensual", 0)
+        if presupuesto == 0:
+            # Silenciosamente asignar presupuesto default de 1000 para que fluya la conversación
+            # El usuario puede cambiarlo después si quiere
+            UserRepository.update_presupuesto(db_user["id"], 1000)
+            presupuesto = 1000
+            # Actualizar el objeto db_user con el nuevo valor
+            db_user["presupuesto_mensual"] = 1000
         
         # 2. Detectar intención (usa TOML)
         try:

@@ -85,6 +85,14 @@ class UserRepository:
         return None
     
     @staticmethod
+    def clear_mensaje_pendiente(user_id: str) -> None:
+        """Limpiar mensaje pendiente sin retornarlo"""
+        client = SupabaseClient.get_instance()
+        client.table("users").update({
+            "mensaje_pendiente": None
+        }).eq("id", user_id).execute()
+    
+    @staticmethod
     def get_by_whatsapp(phone: str) -> Optional[Dict]:
         """Obtener usuario por número de WhatsApp"""
         client = SupabaseClient.get_instance()
