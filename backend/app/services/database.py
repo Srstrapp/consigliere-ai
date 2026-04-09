@@ -110,6 +110,36 @@ class UserRepository:
             }).eq("id", user_id).execute()
             return result.data[0]["mensaje_pendiente"]
         return None
+
+    @staticmethod
+    def set_pending_state(user_id: str, action: Optional[str], data: Optional[Dict] = None) -> None:
+        """Guardar el estado de la acción pendiente en la base de datos"""
+        client = SupabaseClient.get_instance()
+        client.table("users").update({
+            "pending_action": action,
+            "pending_data": data
+        }).eq("id", user_id).execute()
+
+    @staticmethod
+    def get_pending_state(user_id: str) -> Dict[str, Any]:
+        """Obtener el estado de la acción pendiente"""
+        client = SupabaseClient.get_instance()
+        result = client.table("users").select("pending_action, pending_data").eq("id", user_id).execute()
+        if result.data:
+            return {
+                "action": result.data[0].get("pending_action"),
+                "data": result.data[0].get("pending_data") or {}
+            }
+        return {"action": None, "data": {}}
+
+    @staticmethod
+    def clear_pending_state(user_id: str) -> None:
+        """Limpiar el estado de la acción pendiente"""
+        client = SupabaseClient.get_instance()
+        client.table("users").update({
+            "pending_action": None,
+            "pending_data": None
+        }).eq("id", user_id).execute()
     
     @staticmethod
     def clear_mensaje_pendiente(user_id: str) -> None:

@@ -322,27 +322,21 @@ async def telegram_webhook(update: dict):
         # Detectar comandos especiales
         if mensaje.strip().lower() in ["/start", "start", "/menu", "/ayuda", "/help"]:
             # Generar mensaje de bienvenida según si es nuevo o no
-            if es_nuevo:
-                respuesta = f"""Hola! Soy Consiglieri, tu asistente.
+            if es_nuevo or not db_user.get("auth_user_id"):
+                respuesta = """¡Hola! Soy Consiglieri, tu asistente personal para poner en orden tus finanzas y bienestar. 👋
 
-Te ayudo con:
-- Finanzas: registrar gastos, metas de ahorro, presupuesto
-- Bienestar: como estas emocionalmente
-- Legal: dudas simples
+Para arrancar con todo y que pueda llevar tus registros, necesito que te registres en el dashboard:
+https://consigliere.up.railway.app/dashboard
 
-Para usar todas las funciones, registrate en el dashboard.
-Si ya estas registrado, simplemente escribime lo que necesitás."""
+Una vez registrado, podés escribirme cosas como:
+- 'Gasté 500 en comida' 🍔
+- 'Quiero ahorrar 2000 para un viaje' ✈️
+- 'Me siento un poco estresado' 🧘‍♂️
+
+¡Te espero allá para empezar!"""
             else:
-                presupuesto = db_user.get("presupuesto_mensual", 1000) if db_user else 1000
-                respuesta = f"""Bienvenido de vuelta!
-
-Tu presupuesto: ${presupuesto}/mes
-
-Escribime:
-- 'gasté X' para registrar gasto
-- 'meta X Y' para crear meta
-- 'estoy stress' para hablar
-- O lo que necesites"""
+                presupuesto = db_user.get("presupuesto_mensual", 1000)
+                respuesta = f"¡Qué bueno verte de nuevo! 👋\n\nTu presupuesto actual es de ${presupuesto} al mes. ¿En qué te puedo ayudar hoy? Podés registrar un gasto, una meta o contarme cómo vas de energía."
             
             # Enviar respuesta
             from telegram import Bot
@@ -350,19 +344,10 @@ Escribime:
             await bot.send_message(chat_id=update_obj.message.chat_id, text=respuesta)
             return {"status": "ok"}
         
-        # Si es usuario nuevo y no tiene auth, responder diferente
+        # Si es usuario nuevo y no tiene auth, recordarle el registro
         tiene_auth = db_user.get("auth_user_id") is not None if db_user else False
-        if es_nuevo and not tiene_auth and len(mensaje) > 5:
-            # Usuario nuevo sin registro, responder con info
-            respuesta = """Vos sos nuevo! Para usar todas las funciones, registrate en el dashboard.
-
-Una vez registrado, puedo ayudarte con:
-- Registrar gastos
-- Crear metas de ahorro  
-- Hablar de como estas
-- Consultar presupuesto
-
-Registrate y volvé!"""
+        if (es_nuevo or not tiene_auth) and len(mensaje) > 5:
+            respuesta = "¡Veo que todavía no te registraste! 😅 Para que pueda guardar tus gastos y ayudarte con tus metas, pasate por acá:\n\nhttps://consigliere.up.railway.app/dashboard\n\n¡Es un toque y ya quedamos conectados!"
             
             from telegram import Bot
             bot = Bot(token=settings.telegram_bot_token)
@@ -376,8 +361,8 @@ Registrate y volvé!"""
         engine = get_execution_engine()
         manager = get_skill_manager(engine)
         
-        # Ejecutar skill
-        result = manager.execute(mensaje, db_user["id"])
+        # Ejecutar skill (AHORA ES ASYNC)
+        result = await manager.execute(mensaje, db_user["id"])
         
         # Determinar respuesta
         if result.get("message") == "CONTINUAR_CON_IA":
@@ -444,8 +429,8 @@ async def whatsapp_webhook(payload: dict):
         engine = get_execution_engine()
         manager = get_skill_manager(engine)
         
-        # Ejecutar skill
-        result = manager.execute(message["content"], db_user["id"])
+        # Ejecutar skill (AHORA ES ASYNC)
+        result = await manager.execute(message["content"], db_user["id"])
         
         # Determinar respuesta
         if result.get("message") == "CONTINUAR_CON_IA":
