@@ -72,14 +72,16 @@ export class LoginComponent implements OnInit {
     if (!this.telegramToken) return '';
     
     try {
+      console.log('🔍 Validando token de Telegram:', this.telegramToken);
       const { environment } = await import('../../../environments/environment');
       const res = await fetch(`${environment.apiUrl}/auth/token?token=${this.telegramToken}`);
       const data = await res.json();
+      console.log('📦 Respuesta de validación de token:', data);
       if (data.success) {
-        return data.telegram_id;
+        return data.telegram_id.toString();
       }
     } catch (e) {
-      console.error('Error getting telegram_id:', e);
+      console.error('❌ Error al validar token de Telegram:', e);
     }
     return '';
   }
@@ -119,6 +121,12 @@ export class LoginComponent implements OnInit {
       if (this.telegramToken && !this.telegramId) {
         this.telegramId = await this.getTelegramIdFromToken();
       }
+
+      console.log('🚀 Iniciando registro:', { 
+        email: this.email, 
+        nombre: this.nombre, 
+        telegramId: this.telegramId 
+      });
 
       if (this.isLogin) {
         await this.auth.signIn(this.email, this.password);
