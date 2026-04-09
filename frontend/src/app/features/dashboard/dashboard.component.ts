@@ -221,8 +221,8 @@ export class DashboardComponent implements OnInit {
       );
       gsap.fromTo(
         'aside',
-        { x: -30, opacity: 0 },
-        { duration: 0.7, x: 0, opacity: 1, ease: 'power3.out' }
+        { opacity: 0 },
+        { duration: 0.7, opacity: 1, ease: 'power3.out' }
       );
     } catch (_) {}
   }

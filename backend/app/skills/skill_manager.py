@@ -149,7 +149,7 @@ class ConsiglieriSkillManager:
     # ==================== HANDLERS ====================
     
     def _handle_gasto(self, message: str) -> Dict[str, Any]:
-        """Manejar gasto - extraer monto y categoría"""
+        """Manejar gasto - extraer monto y PREGUNTAR categoría"""
         # Extraer monto
         monto_match = re.search(r"(\d+(?:\.\d+)?)", message)
         if not monto_match:
@@ -164,22 +164,16 @@ class ConsiglieriSkillManager:
         # Inferir categoría del contexto
         categoria = self._infer_categoria(message)
         
-        # Ejecutar
-        result = self.engine.expense_create(
-            user_id=self._current_user_id,
-            monto=monto,
-            categoria=categoria,
-            descripcion=message
-        )
-        
+        # PREGUNTAR categoría antes de registrar
         return {
-            "success": result["success"],
-            "message": result["message"],
-            "next_step": "¿Algo más por registrar?"
+            "success": True,
+            "message": f"Gastaste ${monto} en qué? (Alimentos, Transporte, Servicios, Entretenimiento, Salud, Personal, Educación, Otro)",
+            "action": "WAIT_CATEGORIA",
+            "pending_data": {"monto": monto, "categoria": categoria}
         }
     
-    async def _handle_meta(self, message: str) -> Dict[str, Any]:
-        """Manejar meta de ahorro"""
+    def _handle_meta(self, message: str) -> Dict[str, Any]:
+        """Manejar meta de ahorro - pregunta plazo y presupuesto"""
         # Extraer monto
         monto_match = re.search(r"(\d+(?:\.\d+)?)", message)
         if not monto_match:
@@ -196,16 +190,13 @@ class ConsiglieriSkillManager:
         nombre_match = re.search(r"para\s+(?:un|una|el|la)?\s*(\w+)", message)
         nombre = nombre_match.group(1) if nombre_match else "Meta"
         
-        result = self.engine.goal_create(
-            user_id=self._current_user_id,
-            nombre=nombre,
-            meta_amount=monto
-        )
+        # Guardar datos pendientes y PREGUNTAR plazo + presupuesto
+        self._pending_data = {"nombre": nombre, "monto": monto}
         
         return {
-            "success": result["success"],
-            "message": result["message"],
-            "next_step": "¿Tienes fecha objetivo?"
+            "success": True,
+            "message": f"Creo la meta: {nombre} - ${monto:,.2f}. En cuánto tiempo (meses)? Y cuál es tu ingreso mensual?",
+            "action": "WAIT_META_DETAILS"
         }
     
     def _handle_ingreso(self, message: str) -> Dict[str, Any]:
@@ -353,6 +344,49 @@ class ConsiglieriSkillManager:
                     "success": result["success"],
                     "message": result["message"]
                 }
+        
+        elif action == "WAIT_CATEGORIA":
+            # El usuario respondió con la categoría
+            categoria = message.strip().title()
+            
+            # Obtener el monto del pending_data
+            pending = getattr(self, '_pending_data', {})
+            monto = pending.get('monto', 0)
+            
+            if monto > 0:
+                result = self.engine.expense_create(
+                    user_id=self._current_user_id,
+                    monto=monto,
+                    categoria=categoria,
+                    descripcion=message
+                )
+                self._pending_action = None
+                return {
+                    "success": result["success"],
+                    "message": result["message"]
+                }
+            else:
+                self._pending_action = None
+                return {
+                    "success": False,
+                    "message": "Hubo un error. ¿Cuánto fue?"
+                }
+        
+        elif action == "WAIT_META_PLAZO":
+            # El usuario respondió con el plazo para la meta
+            # Ejecutar la meta que estaba pendiente
+            pending = getattr(self, '_pending_data', {})
+            goal_id = pending.get('goal_id')
+            
+            if goal_id:
+                # Guardar el plazo
+                self.engine.goal_set_deadline(goal_id, message)
+            
+            self._pending_action = None
+            return {
+                "success": True,
+                "message": f"✅ Meta actualizada. ¿En cuánto tiempo quieres lograrla?"
+            }
         
         elif action == "WAIT_ENERGIA":
             # El usuario respondió con nivel de energía

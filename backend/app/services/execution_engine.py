@@ -78,7 +78,7 @@ class ExecutionEngine:
             
             return {
                 "success": True,
-                "message": f"💰 Ingreso registrado: ${monto:,.2f} de {fuente}",
+                "message": f"✅ Ingreso registrado: ${monto:,.2f} de {fuente}",
                 "data": income
             }
         except Exception as e:
@@ -109,7 +109,7 @@ class ExecutionEngine:
             
             return {
                 "success": True,
-                "message": f"🎯 Meta creada: {nombre} - ${meta_amount:,.2f}",
+                "message": f"✅ Meta creada: {nombre} - ${meta_amount:,.2f}",
                 "data": goal
             }
         except Exception as e:
@@ -136,7 +136,7 @@ class ExecutionEngine:
                 progreso = (goal["current_amount"] / goal["meta_amount"]) * 100
                 return {
                     "success": True,
-                    "message": f"📈 Progreso: ${goal['current_amount']:,.2f}/${goal['meta_amount']:,.2f} ({progreso:.1f}%)",
+                    "message": f"Progreso: ${goal['current_amount']:,.2f}/${goal['meta_amount']:,.2f} ({progreso:.1f}%)",
                     "data": goal
                 }
             return {
@@ -167,7 +167,7 @@ class ExecutionEngine:
                 }
             
             # Formatear respuesta
-            msg = "📊 Tus metas:\n"
+            msg = "Tus metas:\n"
             for g in goals:
                 progreso = (g["current_amount"] / g["meta_amount"]) * 100 if g["meta_amount"] > 0 else 0
                 msg += f"• {g['nombre']}: ${g['current_amount']:,.2f}/${g['meta_amount']:,.2f} ({progreso:.0f}%)\n"
@@ -205,7 +205,7 @@ class ExecutionEngine:
             
             return {
                 "success": True,
-                "message": f"💳 Deuda registrada: ${monto_total:,.2f} con {acreedor}",
+                "message": f"Deuda registrada: ${monto_total:,.2f} con {acreedor}",
                 "data": debt
             }
         except Exception as e:
@@ -234,7 +234,7 @@ class ExecutionEngine:
             
             return {
                 "success": True,
-                "message": f"💵 Tu presupuesto: ${presupuesto:,.2f}/mes",
+                "message": f"Tu presupuesto: ${presupuesto:,.2f}/mes",
                 "data": {"presupuesto": presupuesto}
             }
         except Exception as e:
@@ -254,7 +254,7 @@ class ExecutionEngine:
             
             return {
                 "success": True,
-                "message": f"✅ Presupuesto actualizado: ${monto:,.2f}/mes",
+                "message": f"Presupuesto actualizado: ${monto:,.2f}/mes",
                 "data": {"presupuesto": monto}
             }
         except Exception as e:
@@ -287,19 +287,19 @@ class ExecutionEngine:
             
             # Análisis según nivel
             if nivel_energia >= 80:
-                analisis = "🚀 Energía excelente. Aprovechá!"
+                analisis = "Energia alta. Aprobala!"
             elif nivel_energia >= 60:
-                "✅ Energia bien. Mantené el ritmo."
+                analisis = "Energia bien. Segui asi."
             elif nivel_energia >= 40:
-                "⚠️ Energia media. Cuidate y tomá pausas."
+                analisis = "Energia media. Cuidate."
             elif nivel_energia >= 20:
-                "🛑 Energia baja. Descanso recomendado."
+                analisis = "Energia baja. Descanso."
             else:
-                "🆘 Energia muy baja. Buscá apoyo."
+                analisis = "Busca apoyo."
             
             return {
                 "success": True,
-                "message": f"📊 Check-in guardado. Nivel: {nivel_energia}/100\n{analisis}",
+                "message": f"Check-in guardado. Energia: {nivel_energia}/100\n{analisis}",
                 "data": checkin
             }
         except Exception as e:
