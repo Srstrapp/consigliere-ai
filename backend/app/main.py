@@ -373,8 +373,12 @@ Una vez registrado, podés escribirme cosas como:
             ia_service = AIServiceFactory.get_service()
             contexto = ConversationRepository.get_last(db_user["id"])
             
+            # Obtener modo dinámico (metanoia, legal, system)
+            modo = result.get("modo", "system")
+            logger.info(f"Usando modo IA: {modo}")
+            
             try:
-                respuesta = await ia_service.chat(mensaje, contexto, modo="system")
+                respuesta = await ia_service.chat(mensaje, contexto, modo=modo)
             except Exception as e:
                 logger.error(f"Error en chat IA: {e}")
                 respuesta = "Disculpa, tuve un problema. Intentá de nuevo."
