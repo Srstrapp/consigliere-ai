@@ -337,8 +337,9 @@ async def telegram_webhook(update: dict):
             contexto = ConversationRepository.get_last(db_user["id"])
             
             try:
-                respuesta = ia_service.chat(mensaje, contexto, modo="system")
-            except Exception:
+                respuesta = await ia_service.chat(mensaje, contexto, modo="system")
+            except Exception as e:
+                logger.error(f"Error en chat IA: {e}")
                 respuesta = "Disculpa, tuve un problema. Intentá de nuevo."
             
             # Guardar conversación
@@ -404,8 +405,9 @@ async def whatsapp_webhook(payload: dict):
             contexto = ConversationRepository.get_last(db_user["id"])
             
             try:
-                respuesta = ia_service.chat(message["content"], contexto, modo="system")
-            except Exception:
+                respuesta = await ia_service.chat(message["content"], contexto, modo="system")
+            except Exception as e:
+                logger.error(f"Error en chat IA WhatsApp: {e}")
                 respuesta = "Disculpa, tuve un problema. Intentá de nuevo."
             
             # Guardar conversación
