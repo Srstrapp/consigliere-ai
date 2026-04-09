@@ -135,22 +135,8 @@ export class AuthService {
     });
     if (error) throw error;
 
-    if (data.user) {
-      // Crear en tabla usuarios (admin/ERP)
-      await this.sb.client.from('usuarios').insert({
-        id: data.user.id,
-        email,
-        nombre,
-        rol: 'usuario',
-      });
-
-      // Crear en tabla users (bot) vinculado por auth_user_id
-      await this.sb.client.from('users').insert({
-        auth_user_id: data.user.id,
-        nombre: nombre,
-        presupuesto_mensual: 1000, // Default
-      });
-    }
+    // Las tablas `usuarios` y `users` se llenan automáticamente vía Database Trigger en Supabase
+    // cuando se inserta el registro en auth.users, evitando problemas de RLS.
   }
 
   async signOut(): Promise<void> {
