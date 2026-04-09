@@ -74,36 +74,25 @@ export class AuthService {
   }
 
   private async loadProfile(userId: string): Promise<void> {
-    // Buscamos primero en public.usuarios (admins/ERP)
-    const { data: adminProfile } = await this.sb.client
-      .from('usuarios')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    if (adminProfile?.nombre) {
-      this.profile.set(adminProfile);
-      return;
-    }
-
-    // Fallback: buscar en public.users (usuarios del bot vinculados por auth_user_id)
-    const { data: botUser } = await this.sb.client
+    // Buscar en public.users (donde se vinculan por auth_user_id)
+    const { data: userRecord, error } = await this.sb.client
       .from('users')
-      .select('id, nombre, email, presupuesto_mensual')
+      .select('id, nombre, email, auth_user_id')
       .eq('auth_user_id', userId)
-      .single();
+      .maybeSingle();
 
-    if (botUser?.nombre) {
+    if (userRecord?.nombre) {
       this.profile.set({
         id: userId,
-        email: botUser.email ?? '',
-        nombre: botUser.nombre,
+        email: userRecord.email ?? '',
+        nombre: userRecord.nombre,
         rol: 'usuario',
       });
       return;
     }
 
-    // Si hay session, usar el displayName del metadata de Supabase Auth como fallback
+    // Fallback: Si no hay registro en la tabla users todavía (ej: registro en proceso) 
+    // usamos metadatos de Supabase Auth
     const user = this.user();
     const metaNombre = user?.user_metadata?.['full_name'] ?? user?.user_metadata?.['name'];
     if (metaNombre) {
@@ -129,6 +118,7 @@ export class AuthService {
     nombre: string,
     telegramId?: string,
   ): Promise<void> {
+    // 1. Registro en Supabase Auth
     const { data, error } = await this.sb.client.auth.signUp({
       email,
       password,
@@ -142,7 +132,28 @@ export class AuthService {
     if (error) throw error;
 
     if (data.user) {
-      console.log('✅ Registro completado. El servidor unificará la cuenta automáticamente.');
+      console.log('✅ Auth completada. Creando perfil en public.users...');
+      
+      // 2. Insert manual en la tabla de negocio (public.users)
+      // Usamos upsert por si el trigger existiera y ya lo hubiera creado
+      const { error: dbError } = await this.sb.client
+        .from('users')
+        .upsert({
+          auth_user_id: data.user.id,
+          email: email,
+          nombre: nombre,
+          telegram_id: telegramId ? parseInt(telegramId) : null,
+          presupuesto_mensual: 1000 // Default inicial
+        }, {
+          onConflict: 'auth_user_id'
+        });
+
+      if (dbError) {
+        console.error('⚠️ Error al crear perfil manual:', dbError);
+        // No lanzamos error para no bloquear el login si el auth fue exitoso
+      } else {
+        console.log('✅ Perfil creado exitosamente en public.users');
+      }
     }
   }
 

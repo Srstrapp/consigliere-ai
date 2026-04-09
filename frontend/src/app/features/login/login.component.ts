@@ -144,30 +144,33 @@ export class LoginComponent implements OnInit {
     this.error.set('');
 
     try {
-      // Asegurarnos de tener el telegramId resuelto antes de proceder
+      // Intentar resolver telegramId si hay token y no lo tenemos
       if (this.telegramToken && !this.telegramId) {
         this.telegramId = await this.getTelegramIdFromToken();
       }
 
-      console.log('🚀 Iniciando registro:', { 
+      const cleanTelegramId = this.telegramId && this.telegramId !== '' ? this.telegramId : undefined;
+
+      console.log('🚀 Procesando acción:', { 
+        isLogin: this.isLogin,
         email: this.email, 
         nombre: this.nombre, 
-        telegramId: this.telegramId 
+        telegramId: cleanTelegramId 
       });
 
       if (this.isLogin) {
         await this.auth.signIn(this.email, this.password);
-        // Si no se vinculó en el registro, intentamos vincular ahora
-        if (this.telegramId) {
+        // Si hay un ID de telegram, vincularlo ahora
+        if (cleanTelegramId) {
           await this.linkTelegramAccount();
         }
         this.router.navigate(['/dashboard']);
       } else {
-        await this.auth.signUp(this.email, this.password, this.nombre, this.telegramId);
+        await this.auth.signUp(this.email, this.password, this.nombre, cleanTelegramId);
         
-        // El vínculo se hará automáticamente en el servidor vía metadatos + trigger
+        // Pasamos a login inmediatamente o mostramos éxito
         this.mode.set('login');
-        this.error.set('✅ Registro exitoso. Iniciá sesión para activar el vínculo.');
+        this.error.set('✅ Registro exitoso. Ahora podés iniciar sesión.');
       }
     } catch (err: any) {
       const msg = err?.message ?? 'Error desconocido';
