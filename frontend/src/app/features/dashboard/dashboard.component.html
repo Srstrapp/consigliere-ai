@@ -109,11 +109,6 @@
       </div>
 
       <div class="flex items-center space-x-2 md:space-x-4 flex-shrink-0">
-        <!-- Search: hidden on small mobile -->
-        <div class="glass-card hidden sm:flex items-center px-3 md:px-4 py-2 space-x-2 md:space-x-3 cursor-pointer">
-          <lucide-icon [name]="Search" class="w-4 h-4 text-silk-500"></lucide-icon>
-          <span class="text-sm text-silk-500 hidden md:block">Command + K</span>
-        </div>
         <div class="relative">
           <lucide-icon
             [name]="Bell"
@@ -137,8 +132,8 @@
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-4 md:gap-6 auto-rows-auto">
 
           <!-- Finance Widget (Main) -->
-          <div class="md:col-span-2 xl:col-span-8 dash-card glass-card p-5 md:p-8 flex flex-col justify-between overflow-hidden relative min-h-[280px] md:min-h-[340px]">
-            <div class="absolute -top-20 -right-20 w-64 h-64 bg-aurora-500/5 blur-[100px]"></div>
+          <div (click)="isHistoryModalOpen.set(true)" class="md:col-span-2 xl:col-span-8 dash-card glass-card p-5 md:p-8 flex flex-col justify-between overflow-hidden relative min-h-[280px] md:min-h-[340px] cursor-pointer hover:border-aurora-500/30 transition-colors group/finance">
+            <div class="absolute -top-20 -right-20 w-64 h-64 bg-aurora-500/5 blur-[100px] group-hover/finance:bg-aurora-500/10 transition-colors"></div>
 
             <div class="flex justify-between items-start">
               <div>
@@ -426,10 +421,10 @@
               <div class="dash-card glass-card p-5 md:p-6 h-full">
                 <h3 class="text-base md:text-lg mb-4 md:mb-6">Gastos Recientes</h3>
                 <div class="space-y-3 md:space-y-4">
-                  @if (gastos.length === 0 && !loadingData) {
+                  @if (gastosRecientes.length === 0 && !loadingData) {
                     <p class="text-sm text-silk-500 text-center py-4">No hay gastos en este mes.</p>
                   } @else {
-                    @for (gasto of gastos; track gasto.id) {
+                    @for (gasto of gastosRecientes; track gasto.id) {
                       <div class="flex justify-between items-center group cursor-pointer bg-white/5 p-3 rounded-lg hover:bg-white/10 transition-colors border border-transparent hover:border-white/10">
                         <div class="flex items-center space-x-3 min-w-0">
                           <div class="w-9 h-9 bg-black/20 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -609,6 +604,51 @@
         <button (click)="crearNuevoGasto()" [disabled]="!nuevoGastoConcepto || !nuevoGastoMonto" class="flex-1 py-3 text-sm font-bold text-white bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors cursor-pointer shadow-glow">
           Registrar Gasto
         </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ══ RECENT TRANSACTIONS HISTORY MODAL ══ -->
+@if (isHistoryModalOpen()) {
+  <div class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" (click)="isHistoryModalOpen.set(false)"></div>
+    <div class="relative glass-card w-full max-w-2xl p-6 border border-white/10 shadow-2xl animate-fade-in-up flex flex-col max-h-[85vh]">
+      <div class="flex justify-between items-center mb-6 flex-shrink-0">
+        <div>
+          <h3 class="text-xl font-bold font-display text-white border-b border-indigo-500/30 pb-1 inline-block">Historial de Transacciones</h3>
+          <p class="text-xs text-silk-500 mt-1">Últimos {{ gastos.length }} movimientos detectados</p>
+        </div>
+        <button (click)="isHistoryModalOpen.set(false)" class="text-silk-500 hover:text-white transition-colors cursor-pointer">
+          <lucide-icon [name]="X" class="w-5 h-5"></lucide-icon>
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto space-y-3 pr-2 scrollbar-hide">
+        @if (gastos.length === 0) {
+          <div class="flex flex-col items-center justify-center py-12 opacity-50">
+            <lucide-icon [name]="Wallet" class="w-12 h-12 text-silk-500 mb-4"></lucide-icon>
+            <p class="text-silk-400 font-bold">No hay transacciones recientes</p>
+          </div>
+        }
+        @for (gasto of gastos; track gasto.id) {
+          <div class="flex justify-between items-center bg-black/40 p-4 rounded-xl border border-white/5 hover:bg-white/5 transition-colors">
+            <div class="flex items-center space-x-4">
+              <div class="w-10 h-10 bg-onyx-800 rounded-full flex items-center justify-center flex-shrink-0">
+                <lucide-icon [name]="Wallet" class="w-5 h-5 text-silk-400"></lucide-icon>
+              </div>
+              <div>
+                <p class="text-sm font-bold text-white">{{ gasto['descripción'] || gasto['descripcion'] || 'Gasto' }}</p>
+                <div class="flex items-center space-x-2 text-[10px] uppercase tracking-widest text-silk-500 mt-1 font-bold">
+                  <span>{{ gasto['categoría'] || gasto['categoria'] || 'General' }}</span>
+                  <span>•</span>
+                  <span>{{ gasto.created_at | date:'shortDate' }}</span>
+                </div>
+              </div>
+            </div>
+            <span class="text-base font-display font-bold text-white">{{ formatMonto(gasto.monto) }}</span>
+          </div>
+        }
       </div>
     </div>
   </div>

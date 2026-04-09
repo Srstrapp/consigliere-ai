@@ -61,6 +61,7 @@ export class DashboardComponent implements OnInit {
   sidebarOpen = signal(false);
   isMetaModalOpen = signal(false);
   isGastoModalOpen = signal(false);
+  isHistoryModalOpen = signal(false);
 
   // Nueva Meta form state
   nuevaMetaNombre = '';
@@ -113,6 +114,10 @@ export class DashboardComponent implements OnInit {
     return this.deudas.reduce((acc, d) => acc + (d.monto_total - d.monto_pagado), 0);
   }
 
+  get gastosRecientes(): any[] {
+    return this.gastos.slice(0, 5);
+  }
+
   ngOnInit(): void {
     this.loadData();
     if (isPlatformBrowser(this.platformId)) {
@@ -158,7 +163,7 @@ export class DashboardComponent implements OnInit {
           .select('*')
           .eq('user_id', userId)
           .order('created_at', { ascending: false })
-          .limit(5),
+          .limit(30),
 
         this.sb.client
           .from('goals')
