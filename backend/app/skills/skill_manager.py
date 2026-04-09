@@ -8,6 +8,8 @@ from typing import Optional, Dict, Any, List
 from datetime import date
 import logging
 
+from .enums import ActionState, IntentionType
+
 logger = logging.getLogger(__name__)
 
 
@@ -24,12 +26,12 @@ INTENTION_PATTERNS = {
     ],
     # FINANZAS - INGRESO
     "ingreso": [
-        r"mi\s+flujo\s+(?:es|de)\s+(\d+)",      # mi flujo es 910
-        r"mi\s+salario\s+(?:es|de|es\s+de)\s+(\d+)",  # mi salary es 800
+        r"mi\s+flujo\s+(?:es|de|es\s+de)\s+(\d+)",      # mi flujo es 910
+        r"mi\s+salario\s+(?:es|de|es\s+de|va\s+a\s+ser)\s+(\d+)",  # mi salary es 800
         r"actualiza.*salario\s+(\d+)",          # actualiza mi salary 1200
-        r"mi\s+ingreso\s+(?:es|de)\s+(\d+)",   # mi ingreso es 1000
+        r"mi\s+ingreso\s+(?:es|de|es\s+de)\s+(\d+)",   # mi ingreso es 1000
         r"gan[ée]\s+(\d+)",    # gané 1000
-        r"recib[ée]\s+(\d+)", # recibí 500
+        r"recib[ié]\s+(\d+)", # recibí 500
     ],
     # FINANZAS - META
     "meta": [
@@ -87,74 +89,159 @@ INTENTION_PATTERNS = {
 
 class ConsiglieriSkillManager:
     """
-    Maneja la carga y ejecución de skills
+    Maneja la carga y ejecución de skills.
+    Implementa el flujo definido en spec.md:
+    - Detecta intención del mensaje
+    - Determina si necesita segundo paso
+    - Ejecuta el handler apropiado
+    - Retorna respuesta directa o pasa a IA
     """
     
     def __init__(self, execution_engine):
         self.engine = execution_engine
-        self._current_user_id = None
-        self._pending_action = None  # Para acciones que requieren segundo paso
+        self._current_user_id: Optional[str] = None
+        self._pending_action: ActionState = ActionState.NONE
+        self._pending_data: Dict[str, Any] = {}
         
+        logger.info("ConsiglieriSkillManager inicializado")
+    
     def set_user(self, user_id: str):
-        """Establecer usuario actual"""
+        """Establecer usuario actual y limpiar estado previo"""
         self._current_user_id = user_id
+        self._pending_action = ActionState.NONE
+        self._pending_data = {}
+        logger.debug(f"Usuario establecido: {user_id}")
     
-    def detect_intention(self, message: str) -> str:
-        """Detectar intención del mensaje"""
-        message_lower = message.lower()
+    def detect_intention(self, message: str) -> IntentionType:
+        """
+        Detectar intención del mensaje usando patrones regex.
+        Retorna el tipo de intención detectado.
+        """
+        message_lower = message.lower().strip()
         
-        for intention, patterns in INTENTION_PATTERNS.items():
+        # Primero verificar comandos especiales
+        if message_lower in ["/start", "start", "/menu", "/menu", "/ayuda", "/help", "menu", "ayuda"]:
+            logger.info(f"Intención detectada: MENU (comando especial)")
+            return IntentionType.GENERAL
+        
+        # Buscar patrones de intención
+        for intention_name, patterns in INTENTION_PATTERNS.items():
             for pattern in patterns:
-                if re.search(pattern, message_lower):
-                    return intention
+                match = re.search(pattern, message_lower)
+                if match:
+                    try:
+                        intention = IntentionType(intention_name)
+                        logger.info(f"Intención detectada: {intention.value} - patrón: {pattern}")
+                        return intention
+                    except ValueError:
+                        continue
         
-        return "general"
+        logger.info("Intención detectada: GENERAL (no matcheó ningún patrón)")
+        return IntentionType.GENERAL
     
-    def needs_second_step(self, intention: str) -> bool:
-        """Determina si necesita segundo paso (más datos)"""
-        return intention in ["gasto", "meta", "ingreso", "deuda", "checkin"]
+    def _should_pass_to_ia(self, message: str, intention: IntentionType) -> bool:
+        """
+        Determina si el mensaje debe pasar a IA para interpretación.
+        Solo para mensajes largos con contenido real de análisis/situación.
+        """
+        msg_lower = message.lower().strip()
+        
+        # Si la intención ya es específica (gasto, meta, etc), no pasar a IA
+        if intention != IntentionType.GENERAL:
+            return False
+        
+        # Si es mensaje corto, responder directamente
+        if len(message) < 30:
+            logger.debug("Mensaje corto - no pasa a IA")
+            return False
+        
+        # Detectar si es saludo trivial
+        saludos = ["hola", "buenas", "buenos dias", "buenas noches", "hello", "hi", "que tal", "como estas", "buen dia"]
+        if any(msg_lower.startswith(s) for s in saludos):
+            logger.debug("Saludo trivial - no pasa a IA")
+            return False
+        
+        # Verificar palabras que indican análisis real
+        palabras_analisis = [
+            "qué crees", "crees que", "me recomiendas", "opinión", "analiza", 
+            "situación", "consejo", "piensas", "debería", "flujo", 
+            "presupuesto", "deuda", "inversión", "ahorrar", "plan"
+        ]
+        
+        if any(p in msg_lower for p in palabras_analisis) and len(message) > 50:
+            logger.info("Mensaje con contenido real - pasa a IA para interpretación")
+            return True
+        
+        return False
     
     def execute(self, message: str, user_id: str) -> Dict[str, Any]:
         """
-        Ejecutar la skill apropiada según la intención
+        Ejecutar la skill apropiada según la intención.
+        Flujo definido en spec.md:
+        1. Si hay acción pendiente, ejecutar _execute_pending
+        2. Detectar intención
+        3. Si es GENERAL, verificar si debe pasar a IA
+        4. Si necesita segundo paso, ejecutar handler correspondiente
+        5. Ejecutar handler según intención
         """
+        logger.info(f"=== PROCESANDO MENSAJE === User: {user_id[:8]}... | Mensaje: {message[:50]}...")
+        
         self.set_user(user_id)
         
-        # Verificar si hay acción pendiente (segundo paso)
-        if self._pending_action:
+        # 1. Verificar si hay acción pendiente
+        if self._pending_action != ActionState.NONE:
+            logger.info(f"Ejecutando acción pendiente: {self._pending_action.value}")
             return self._execute_pending(message)
         
-        # Detectar comandos especiales primero
-        msg_lower = message.lower().strip()
-        if msg_lower in ["/start", "start", "/menu", "/ayuda", "/help", "menu", "ayuda"]:
-            return {
-                "success": True,
-                "message": "MENU"
-            }
-        
-        # Detectar intención
+        # 2. Detectar intención
         intention = self.detect_intention(message)
+        logger.info(f"Intención detectada: {intention.value}")
         
-        # Verificar si necesita segundo paso
-        if self.needs_second_step(intention):
+        # 3. Si es GENERAL, verificar si debe pasar a IA
+        if intention == IntentionType.GENERAL:
+            if self._should_pass_to_ia(message, intention):
+                logger.info("Pasando a IA para interpretación")
+                return {
+                    "success": True,
+                    "message": "CONTINUAR_CON_IA",
+                    "action": "IA_CHAT"
+                }
+            else:
+                # Responder directamente sin IA
+                logger.info("Respondiendo directamente (mensaje trivial)")
+                return self._handle_general(message)
+        
+        # 4. Determinar si necesita segundo paso
+        intentions_need_second_step = [
+            IntentionType.GASTO,
+            IntentionType.META,
+            IntentionType.INGRESO,
+            IntentionType.DEUDA,
+            IntentionType.CHECKIN
+        ]
+        
+        if intention in intentions_need_second_step:
+            logger.info(f"Ejecutando handler con segundo paso: {intention.value}")
             return self._handle_second_step(intention, message)
         
-        # Ejecutar según intención
-        if intention == "gasto":
+        # 5. Ejecutar según intención directamente
+        logger.info(f"Ejecutando handler directo: {intention.value}")
+        
+        if intention == IntentionType.GASTO:
             return self._handle_gasto(message)
-        elif intention == "meta":
+        elif intention == IntentionType.META:
             return self._handle_meta(message)
-        elif intention == "ingreso":
+        elif intention == IntentionType.INGRESO:
             return self._handle_ingreso(message)
-        elif intention == "deuda":
+        elif intention == IntentionType.DEUDA:
             return self._handle_deuda(message)
-        elif intention == "presupuesto":
+        elif intention == IntentionType.PRESUPUESTO:
             return self._handle_presupuesto(message)
-        elif intention == "estres" or intention == "emocional" or intention == "energia":
+        elif intention in [IntentionType.ESTRES, IntentionType.EMOCIONAL, IntentionType.ENERGIA]:
             return self._handle_psicologia(message, intention)
-        elif intention == "checkin":
+        elif intention == IntentionType.CHECKIN:
             return self._handle_checkin(message)
-        elif intention == "legal":
+        elif intention == IntentionType.LEGAL:
             return self._handle_legal(message)
         else:
             return self._handle_general(message)

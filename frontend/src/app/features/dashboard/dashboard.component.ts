@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, PLATFORM_ID, signal } from '@angular/core';
+import { Component, OnInit, inject, PLATFORM_ID, signal, ChangeDetectorRef } from '@angular/core';
 import { isPlatformBrowser, CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -37,6 +37,7 @@ export class DashboardComponent implements OnInit {
   readonly auth = inject(AuthService);
   private readonly sb = inject(SupabaseService);
   private readonly router = inject(Router);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   // Icons
   readonly Wallet = Wallet;
@@ -234,6 +235,7 @@ export class DashboardComponent implements OnInit {
       console.warn('Error loading dashboard data:', e);
     } finally {
       this.loadingData = false;
+      this.cdr.detectChanges();
     }
   }
 
