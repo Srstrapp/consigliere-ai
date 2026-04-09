@@ -38,9 +38,8 @@ class ExecutionEngine:
             expense = ExpenseRepository.create(
                 user_id=user_id,
                 monto=monto,
-                categoria=categoria,
-                descripcion=descripcion or "",
-                fecha=fecha
+                categoría=categoria,
+                descripción=descripcion or ""
             )
             
             return {
@@ -73,9 +72,8 @@ class ExecutionEngine:
                 user_id=user_id,
                 monto=monto,
                 fuente=fuente,
-                descripcion=descripcion or "",
-                moneda=moneda,
-                fecha=fecha
+                descripción=descripcion or "",
+                moneda=moneda
             )
             
             return {
