@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 # ==================== PATRONES DE INTENCIÓN ====================
 
 INTENTION_PATTERNS = {
-    # FINANZAS
+    # FINANZAS - GASTO
     "gasto": [
         r"gast[ée]\s+(\d+)",  # gasté 500
         r"compr[ée]\s+(\d+)", # compré 200
@@ -22,18 +22,23 @@ INTENTION_PATTERNS = {
         r"gasto\s+(\d+)",     # gasto 300
         r"(\d+)\s+en\s+(\w+)", # 500 en comida
     ],
-    "meta": [
-        r"quier[oe]\s+ahorrar\s+(\d+)",  # quiero ahorrar 5000
-        r"meta\s+(\d+)",                # meta 3000
-        r"ahorrar\s+para\s+(\w+)",      # ahorrar para viaje
-        r"objetivo\s+(\d+)",            # objetivo 10000
-    ],
+    # FINANZAS - INGRESO
     "ingreso": [
+        r"mi\s+flujo\s+(?:es|de)\s+(\d+)",      # mi flujo es 910
+        r"mi\s+salario\s+(?:es|de|es\s+de)\s+(\d+)",  # mi salary es 800
+        r"actualiza.*salario\s+(\d+)",          # actualiza mi salary 1200
+        r"mi\s+ingreso\s+(?:es|de)\s+(\d+)",   # mi ingreso es 1000
         r"gan[ée]\s+(\d+)",    # gané 1000
         r"recib[ée]\s+(\d+)", # recibí 500
-        r"salario\s+(\d+)",    # salary 2000
-        r"ingreso\s+(\d+)",    # ingreso 800
     ],
+    # FINANZAS - META
+    "meta": [
+        r"meta\s+(\w+)\s+(\d+)",     # meta moto 2650
+        r"crear\s+meta\s+(\w+)\s+(\d+)", # crear meta moto 2000
+        r"quier[oe]\s+ahorrar\s+(\d+)",  # quiero ahorrar 5000
+        r"objetivo\s+(\d+)",            # objetivo 10000
+    ],
+    # FINANZAS - DEUDA
     "deuda": [
         r"debo\s+(\d+)",         # debo 5000
         r"deuda\s+de\s+(\d+)",   # deuda de 3000
@@ -200,7 +205,7 @@ class ConsiglieriSkillManager:
         }
     
     def _handle_ingreso(self, message: str) -> Dict[str, Any]:
-        """Manejar ingreso"""
+        """Manejar ingreso - pregunta para confirmar si es ingreso"""
         monto_match = re.search(r"(\d+(?:\.\d+)?)", message)
         if not monto_match:
             return {
@@ -210,19 +215,27 @@ class ConsiglieriSkillManager:
             }
         
         monto = float(monto_match.group(1))
-        fuente = self._infer_fuente(message)
         
+        # Preguntar si es ingreso (no gasto)
+        return {
+            "success": True,
+            "message": f"Entendí ${monto}. Es tu ingreso mensual, cierto?",
+            "action": "WAIT_CONFIRMA_INGRESO",
+            "pending_data": {"monto": monto}
+        }
+    
+    def _handle_ingreso_confirmado(self, monto: float) -> Dict[str, Any]:
+        """Procesar ingreso confirmado"""
         result = self.engine.income_create(
             user_id=self._current_user_id,
             monto=monto,
-            fuente=fuente,
-            descripcion=message
+            fuente="Ingreso mensual",
+            descripcion=""
         )
         
         return {
             "success": result["success"],
-            "message": result["message"],
-            "next_step": "¿Actualizo tu presupuesto?"
+            "message": result["message"]
         }
     
     def _handle_deuda(self, message: str) -> Dict[str, Any]:
@@ -286,26 +299,13 @@ class ConsiglieriSkillManager:
         temas = self._detect_legal_topic(message)
         
         if "consumidor" in temas:
-            respuesta = "Sobre derechos del consumidor:\n"
-            respuesta += "• Derecho a información veraz\n"
-            respuesta += "• Garantía legal de productos\n"
-            respuesta += "• Derecho a retracto (5 días)\n\n"
-            respuesta += "⚠️ Esto es orientación general. Para casos complejos, consultá un abogado."
+            respuesta = "Sobre derechos del consumidor: info veraz, garantia de productos, retracto 5 dias. Para casos complejos, consulta un abogado."
         elif "contrato" in temas:
-            respuesta = "Sobre contratos:\n"
-            respuesta += "• Elementos: partes, objeto, consentimiento\n"
-            respuesta += "• Evitar cláusulas abusivas\n"
-            respuesta += "• Todo por escrito\n\n"
-            respuesta += "⚠️ Orientación general, no consejo legal."
+            respuesta = "Sobre contratos: partes, objeto, consentimiento. Evita cláusulas abusivas, todo por escrito. No es consejo legal."
         elif "empleo" in temas:
-            respuesta = "Sobre empleo:\n"
-            respuesta += "• Liquidación por despido\n"
-            respuesta += "• Horas extras: 50% adicional\n"
-            respuesta += "• Prestaciones sociales\n\n"
-            respuesta += "⚠️ Te recomiendo un abogado laboral."
+            respuesta = "Sobre empleo: Liquidacion por despido, horas extras 50%, prestaciones sociales. Te recomiendo un abogado laboral."
         else:
-            respuesta = "Sobre ese tema legal, necesito más detalles. "
-            respuesta += "¿Podrías contarme brevemente tu situación?"
+            respuesta = "Sobre ese tema legal, necesito más detalles. Contame brevemente tu situación."
         
         return {
             "success": True,
@@ -313,11 +313,39 @@ class ConsiglieriSkillManager:
         }
     
     def _handle_general(self, message: str) -> Dict[str, Any]:
-        """Manejar mensaje general - pasar a IA"""
+        """Manejar mensaje general - decide si pasar a IA o responder directamente"""
+        msg_lower = message.lower().strip()
+        
+        # Detectar si es saludo trivial
+        saludos = ["hola", "buenas", "buenos dias", "buenas noches", "hello", "hi", "que tal", "como estas", "buen dia"]
+        if any(msg_lower.startswith(s) for s in saludos):
+            return {
+                "success": True,
+                "message": "Hola! Soy Consiglieri. Te ayudo con finanzas, metas de ahorro, bienestar y temas legales. Qué necesitás?"
+            }
+        
+        # Detectar si es mensaje corto trivial
+        if len(message) < 30:
+            return {
+                "success": True,
+                "message": "Estoy listo para ayudarte. Podés decirme: 'gasté X', 'crear meta Y', 'estoy stress' o lo que necesites."
+            }
+        
+        # Solo pasar a IA si es un mensaje largo con contenido real (situación, análisis, consejo)
+        # Palabras que indican que necesita análisis real
+        palabras_analisis = ["qué crees", "crees que", "me recomiendas", "opinión", "analiza", "situación", "consejo", "piensas", "debería", "flujo", "presupuesto", "deuda"]
+        
+        if any(p in msg_lower for p in palabras_analisis) and len(message) > 50:
+            return {
+                "success": True,
+                "message": "CONTINUAR_CON_IA",  # Señal para usar chat de IA
+                "action": "IA_CHAT"
+            }
+        
+        # Para otros mensajes generales, responder directamente sin IA
         return {
             "success": True,
-            "message": "CONTINUAR_CON_IA",  # Señal para usar chat de IA
-            "action": "IA_CHAT"
+            "message": "No entendí bien. Puedo ayudarte con: registrar gastos ('gasté 300'), crear metas ('meta moto 2000'), bienestar ('estoy stress') o temas legales. Qué necesitás?"
         }
     
     # ==================== SEGUNDOS PASOS ====================
@@ -372,20 +400,47 @@ class ConsiglieriSkillManager:
                     "message": "Hubo un error. ¿Cuánto fue?"
                 }
         
-        elif action == "WAIT_META_PLAZO":
-            # El usuario respondió con el plazo para la meta
-            # Ejecutar la meta que estaba pendiente
-            pending = getattr(self, '_pending_data', {})
-            goal_id = pending.get('goal_id')
+        elif action == "WAIT_META_DETAILS":
+            # El usuario respondió con plazo e ingreso
+            # Parsear: "12 meses, 1000 ingresos" o "12 meses / 1000"
+            import re
             
-            if goal_id:
-                # Guardar el plazo
-                self.engine.goal_set_deadline(goal_id, message)
+            # Buscar número de meses
+            meses_match = re.search(r'(\d+)\s*(?:mes|meses)', message.lower())
+            # Buscar ingreso mensual
+            ingreso_match = re.search(r'(\d+(?:\.\d+)?)', message)
+            
+            pending = getattr(self, '_pending_data', {})
+            nombre = pending.get('nombre', 'Meta')
+            monto = pending.get('monto', 0)
+            
+            meses = int(meses_match.group(1)) if meses_match else 12
+            ingreso = float(ingreso_match.group(1)) if ingreso_match else 0
+            
+            # Crear la meta
+            result = self.engine.goal_create(
+                user_id=self._current_user_id,
+                nombre=nombre,
+                meta_amount=monto
+            )
+            
+            # Calcular ahorro mensual necesario
+            if meses > 0:
+                ahorro_mensual = monto / meses
+                
+                # Calcular cuanto del ingreso representa
+                if ingreso > 0:
+                    porcentaje = (ahorro_mensual / ingreso) * 100
+                    msg = f"Meta creada: {nombre} - ${monto:,.2f}. Para lograrea en {meses} meses, necesitás ahorrar ${ahorro_mensual:,.2f}/mes ({porcentaje:.1f}% de tu ingreso)."
+                else:
+                    msg = f"Meta creada: {nombre} - ${monto:,.2f}. Para lograrea en {meses} meses, necesitás ahorrar ${ahorro_mensual:,.2f}/mes."
+            else:
+                msg = result["message"]
             
             self._pending_action = None
             return {
                 "success": True,
-                "message": f"✅ Meta actualizada. ¿En cuánto tiempo quieres lograrla?"
+                "message": msg
             }
         
         elif action == "WAIT_ENERGIA":
@@ -404,19 +459,49 @@ class ConsiglieriSkillManager:
                 
                 # Análisis según nivel
                 if energia >= 80:
-                    analisis = "🚀 Energía excelente. ¡Aprobala!"
+                    analisis = "Energia alta. Aprobala!"
                 elif energia >= 60:
-                    analisis = "✅ Energía bien. Mantené el ritmo."
+                    analisis = "Energia bien. Segui asi."
                 elif energia >= 40:
-                    analisis = "⚠️ Energía media. Cuidate."
+                    analisis = "Energia media. Cuidate."
                 elif energia >= 20:
-                    analisis = "🛑 Energía baja. Descanso."
+                    analisis = "Energia baja. Descanso."
                 else:
-                    analisis = "🆘 Busca apoyo."
+                    analisis = "Busca apoyo."
                 
                 return {
                     "success": True,
-                    "message": f"📊 Registrado: {energia}/100\n{analisis}\n\n3 cosas: 1) Respirá 2) Movete 3) Escribí lo que pods controlar"
+                    "message": f"Check-in guardado. Energia: {energia}/100. {analisis}"
+                }
+        
+        elif action == "WAIT_CONFIRMA_INGRESO":
+            # El usuario confirmó si es ingreso
+            msg_lower = message.lower().strip()
+            
+            # Si dice sí, es ingreso. Si dice no, podría ser gasto
+            if any(p in msg_lower for p in ["si", "sí", "yes", "es", "correcto", "si es", "si, es"]):
+                pending = getattr(self, '_pending_data', {})
+                monto = pending.get('monto', 0)
+                result = self.engine.income_create(
+                    user_id=self._current_user_id,
+                    monto=monto,
+                    fuente="Ingreso mensual",
+                    descripcion=""
+                )
+                self._pending_action = None
+                return {
+                    "success": result["success"],
+                    "message": result["message"]
+                }
+            else:
+                # Si no es ingreso, asumir que es gasto
+                pending = getattr(self, '_pending_data', {})
+                monto = pending.get('monto', 0)
+                return {
+                    "success": True,
+                    "message": f"Entendí ${monto}. En qué categoría? (Alimentos, Transporte, Servicios, Otro)",
+                    "action": "WAIT_CATEGORIA",
+                    "pending_data": {"monto": monto}
                 }
         
         self._pending_action = None
