@@ -507,17 +507,60 @@
           <label class="block text-xs uppercase tracking-widest text-silk-500 mb-1.5 font-bold">Concepto (ej. Auto, Vacaciones)</label>
           <input type="text" [(ngModel)]="nuevaMetaNombre" placeholder="¿Para qué vas a ahorrar?" class="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-aurora-500/50 transition-colors">
         </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs uppercase tracking-widest text-silk-500 mb-1.5 font-bold">Monto Total</label>
+            <input type="number" [(ngModel)]="nuevaMetaMonto" placeholder="Ej: 5000" class="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-aurora-500/50 transition-colors">
+          </div>
+          <div>
+            <label class="block text-xs uppercase tracking-widest text-silk-500 mb-1.5 font-bold">Ahorro Previo</label>
+            <input type="number" [(ngModel)]="nuevaMetaAhorroInicial" placeholder="Ej: 0" class="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-aurora-500/50 transition-colors">
+          </div>
+        </div>
         <div>
-          <label class="block text-xs uppercase tracking-widest text-silk-500 mb-1.5 font-bold">Monto Total a Alcanzar</label>
-          <input type="number" [(ngModel)]="nuevaMetaMonto" placeholder="Ej: 5000" class="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-aurora-500/50 transition-colors">
+          <label class="block text-xs uppercase tracking-widest text-silk-500 mb-1.5 font-bold">¿En cuántos meses lo querés lograr?</label>
+          <input type="number" [(ngModel)]="nuevaMetaMeses" placeholder="Ej: 6" class="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-aurora-500/50 transition-colors">
         </div>
       </div>
+
+      <!-- Consigliere Insight -->
+      @if (nuevaMetaMonto && nuevaMetaMeses) {
+        <div class="mt-6 p-4 rounded-xl border" 
+             [class.border-aurora-500/30]="cuotaSugeridaMeta <= saldoDisponible" 
+             [class.bg-aurora-500/5]="cuotaSugeridaMeta <= saldoDisponible"
+             [class.border-red-500/30]="cuotaSugeridaMeta > saldoDisponible"
+             [class.bg-red-500/5]="cuotaSugeridaMeta > saldoDisponible">
+          <div class="flex items-start space-x-3 text-sm">
+            <lucide-icon [name]="cuotaSugeridaMeta <= saldoDisponible ? 'Lightbulb' : 'AlertTriangle'" 
+                         [class.text-aurora-500]="cuotaSugeridaMeta <= saldoDisponible"
+                         [class.text-red-500]="cuotaSugeridaMeta > saldoDisponible"
+                         class="w-5 h-5 flex-shrink-0 mt-0.5">
+            </lucide-icon>
+            <div>
+              <p class="font-bold text-white mb-1">El Consigliere Recomienda:</p>
+              <p class="text-silk-400">
+                Para alcanzar tu meta en {{ nuevaMetaMeses }} meses, deberías ahorrar 
+                <span class="font-bold text-white">${{ cuotaSugeridaMeta | number:'1.0-0' }}</span> por mes.
+              </p>
+              @if (cuotaSugeridaMeta > saldoDisponible) {
+                <p class="text-red-400 text-xs mt-2 font-bold tracking-wide uppercase">
+                  ⚠️ Cuidado: Esta cuota es mayor que tu Saldo Disponible mensual (${{ saldoDisponible | number:'1.0-0' }}). Considerá achicar gastos o estirar el plazo.
+                </p>
+              } @else {
+                <p class="text-aurora-400 text-xs mt-2 font-bold tracking-wide uppercase">
+                  ✅ Viable: Representa un {{ (cuotaSugeridaMeta / (saldoDisponible || 1)) * 100 | number:'1.0-0' }}% de tu saldo disponible actual.
+                </p>
+              }
+            </div>
+          </div>
+        </div>
+      }
 
       <div class="mt-8 flex gap-3">
         <button (click)="isMetaModalOpen.set(false)" class="flex-1 py-3 text-sm font-bold text-silk-300 bg-white/5 hover:bg-white/10 rounded-xl transition-colors cursor-pointer">
           Cancelar
         </button>
-        <button (click)="crearNuevaMeta()" [disabled]="!nuevaMetaNombre || !nuevaMetaMonto" class="flex-1 py-3 text-sm font-bold text-white bg-aurora-600 hover:bg-aurora-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors cursor-pointer shadow-glow">
+        <button (click)="crearNuevaMeta()" [disabled]="!nuevaMetaNombre || !nuevaMetaMonto || !nuevaMetaMeses || cuotaSugeridaMeta < 0" class="flex-1 py-3 text-sm font-bold text-white bg-aurora-600 hover:bg-aurora-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors cursor-pointer shadow-glow">
           Crear Meta
         </button>
       </div>

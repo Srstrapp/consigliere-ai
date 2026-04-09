@@ -65,6 +65,8 @@ export class DashboardComponent implements OnInit {
   // Nueva Meta form state
   nuevaMetaNombre = '';
   nuevaMetaMonto = '';
+  nuevaMetaAhorroInicial = '';
+  nuevaMetaMeses = '';
 
   // Nuevo Gasto form state
   nuevoGastoConcepto = '';
@@ -266,7 +268,7 @@ export class DashboardComponent implements OnInit {
   }
 
   async crearNuevaMeta(): Promise<void> {
-    if (!this.nuevaMetaNombre || !this.nuevaMetaMonto) return;
+    if (!this.nuevaMetaNombre || !this.nuevaMetaMonto || !this.nuevaMetaMeses) return;
     const user = this.auth.user();
     if (!user) return;
 
@@ -274,11 +276,16 @@ export class DashboardComponent implements OnInit {
       const { data: botUser } = await this.sb.client.from('users').select('id').limit(1).single();
       const userId = botUser?.id ?? user.id;
 
+      // Calcular deadline sumando n meses
+      const deadline = new Date();
+      deadline.setMonth(deadline.getMonth() + Number(this.nuevaMetaMeses));
+
       const newGoal = {
         user_id: userId,
         nombre: this.nuevaMetaNombre,
         meta_amount: Number(this.nuevaMetaMonto),
-        current_amount: 0
+        current_amount: Number(this.nuevaMetaAhorroInicial || 0),
+        deadline: deadline.toISOString()
       };
 
       const { data, error } = await this.sb.client.from('goals').insert(newGoal).select().single();
@@ -290,6 +297,16 @@ export class DashboardComponent implements OnInit {
     this.isMetaModalOpen.set(false);
     this.nuevaMetaNombre = '';
     this.nuevaMetaMonto = '';
+    this.nuevaMetaAhorroInicial = '';
+    this.nuevaMetaMeses = '';
+  }
+
+  get cuotaSugeridaMeta(): number {
+    const total = Number(this.nuevaMetaMonto) || 0;
+    const inicial = Number(this.nuevaMetaAhorroInicial) || 0;
+    const meses = Number(this.nuevaMetaMeses) || 1;
+    if (total <= inicial) return 0;
+    return (total - inicial) / meses;
   }
 
   async crearNuevoGasto(): Promise<void> {
