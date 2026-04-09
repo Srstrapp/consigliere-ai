@@ -297,10 +297,9 @@ async def evolution_bot(payload: dict):
 
 @app.post("/webhook/telegram")
 async def telegram_webhook(update: dict):
-    """Webhook para recibir mensajes de Telegram"""
+    """Webhook para recibir mensajes de Telegram - Usa Skill Manager"""
     try:
         from telegram import Update, Bot
-        from telegram.ext import ContextTypes
         
         # Crear objeto Update desde el payload del webhook
         update_obj = Update.de_json(update, Bot(token=settings.telegram_bot_token) if settings.telegram_bot_token else None)
@@ -308,17 +307,52 @@ async def telegram_webhook(update: dict):
         if not update_obj.message:
             return {"status": "ignored"}
         
-        # Importar y usar el MessageRouter
-        from app.services.telegram import MessageRouter
+        mensaje = update_obj.message.text or ""
+        user_id_telegram = update_obj.message.from_user.id
         
-        router = MessageRouter()
+        # Obtener o crear usuario en Supabase
+        from app.services.database import UserRepository
+        db_user = UserRepository.get_by_telegram(user_id_telegram)
+        if not db_user:
+            nombre = update_obj.message.from_user.first_name or "Usuario"
+            db_user = UserRepository.create(user_id_telegram, nombre)
         
-        # Crear un contextofake
-        class FakeContext:
-            pass
+        # Usar Skill Manager para procesar el mensaje
+        from app.skills import get_skill_manager
+        from app.services.execution_engine import get_execution_engine
         
-        # Procesar el mensaje
-        await router.process(update_obj, FakeContext())
+        engine = get_execution_engine()
+        manager = get_skill_manager(engine)
+        
+        # Ejecutar skill
+        result = manager.execute(mensaje, db_user["id"])
+        
+        # Determinar respuesta
+        if result.get("message") == "CONTINUAR_CON_IA":
+            # Pasar a IA para respuesta general
+            from app.services.deepseek import AIServiceFactory
+            from app.services.database import ConversationRepository
+            
+            ia_service = AIServiceFactory.get_service()
+            contexto = ConversationRepository.get_last(db_user["id"])
+            
+            try:
+                respuesta = ia_service.chat(mensaje, contexto, modo="system")
+            except Exception:
+                respuesta = "Disculpa, tuve un problema. Intentá de nuevo."
+            
+            # Guardar conversación
+            contexto.append({"role": "user", "content": mensaje})
+            contexto.append({"role": "assistant", "content": respuesta})
+            ConversationRepository.save(db_user["id"], contexto[-10:])
+        else:
+            # Usar respuesta de la skill
+            respuesta = result.get("message", "✅ Listo")
+        
+        # Enviar respuesta por Telegram
+        from telegram import Bot
+        bot = Bot(token=settings.telegram_bot_token)
+        await bot.send_message(chat_id=update_obj.message.chat_id, text=respuesta)
         
         return {"status": "ok"}
     except Exception as e:
@@ -328,7 +362,7 @@ async def telegram_webhook(update: dict):
 
 @app.post("/webhook/whatsapp")
 async def whatsapp_webhook(payload: dict):
-    """Webhook para WhatsApp (Evolution API)"""
+    """Webhook para WhatsApp (Evolution API) - Usa Skill Manager"""
     try:
         message = WhatsAppMessageParser.parse_message(payload)
         
@@ -341,91 +375,51 @@ async def whatsapp_webhook(payload: dict):
             logger.info(f"📱 WhatsApp: mensaje tipo {message['type']} ignorado")
             return {"status": "ignored"}
         
-        # Importar el MessageRouter y procesar
-        from app.services.telegram import MessageRouter, PlatformMessage
+        # Obtener o crear usuario
+        from app.services.database import UserRepository
+        db_user = UserRepository.get_by_whatsapp(message["phone"])
+        if not db_user:
+            db_user = UserRepository.create_by_phone(
+                message["phone"], 
+                message.get("push_name", "Usuario WhatsApp")
+            )
         
-        # Crear mensaje abstracto
-        platform_msg = PlatformMessage(
-            platform="whatsapp",
-            user_id=message["phone"],
-            user_name=message.get("push_name", "Usuario WhatsApp"),
-            text=message["content"]
-        )
+        # Usar Skill Manager para procesar el mensaje
+        from app.skills import get_skill_manager
+        from app.services.execution_engine import get_execution_engine
         
-        # Procesar con el router (pero necesitamos adaptarlo)
-        # Por ahora usamos el mismo router pero con un wrapper
-        router = MessageRouter()
+        engine = get_execution_engine()
+        manager = get_skill_manager(engine)
         
-        # Crear un handler que-use el WhatsApp service para responder
-        from app.services.whatsapp import WhatsAppServiceFactory
-        wa_service = WhatsAppServiceFactory.get_service()
+        # Ejecutar skill
+        result = manager.execute(message["content"], db_user["id"])
         
-        # Procesar intención
-        try:
-            from app.services.deepseek import AIServiceFactory, IAResponseError
-            ia_service = AIServiceFactory.get_service()
-            intención = ia_service.detectar_intención(message["content"]).intencion
-        except IAResponseError:
-            intención = "general"
-        
-        # Procesar según intención
-        # Por cada tipo de intención, llamamos al handler correspondiente
-        db_user = None
-        if intención in ["gasto", "meta", "presupuesto"]:
-            # Necesitamos usuario en DB
-            from app.services.database import UserRepository
-            db_user = UserRepository.get_by_whatsapp(message["phone"])
-            if not db_user:
-                db_user = UserRepository.create_by_phone(
-                    message["phone"], 
-                    message.get("push_name", "Usuario WhatsApp")
-                )
-        
-        # Ejecutar el handler
-        if intención == "gasto":
-            from app.services.deepseek import GastoData
-            datos: GastoData = ia_service.analizar(message["content"])
-            if datos.monto > 0:
-                from app.services.database import ExpenseRepository
-                ExpenseRepository.create(db_user["id"], datos.monto, datos.categoria, datos.desc or message["content"])
-                respuesta = f"✅ *Gasto registrado:*\n\n💰 ${datos.monto:.2f}\n📂 {datos.categoria}"
-            else:
-                respuesta = "No pude entender el monto. Probá con algo como 'gasté 5000 en comida'"
-        elif intención == "meta":
-            import re
-            monto_match = re.search(r'(\d+(?:\.\d+)?)', message["content"])
-            if monto_match:
-                monto = float(monto_match.group(1))
-                nombre = message["content"].replace(monto_match.group(1), "").strip()[:50] or "Mi meta"
-                from app.services.database import GoalRepository
-                GoalRepository.create(db_user["id"], nombre, monto)
-                respuesta = f"🎯 *Meta creada!*\n\nObjetivo: {nombre}\nMonto: ${monto:.2f}"
-            else:
-                respuesta = "Para crear una meta, indicá el monto. Ej: 'Quiero ahorrar 50000 para un carro'"
-        elif intención == "presupuesto":
-            respuesta = "Para ver tu presupuesto usá /presupuesto\nPara cambiarlo, escribí algo como 'Quiero poner mi presupuesto en 2000'"
-        else:
-            # General - usar chat de IA
+        # Determinar respuesta
+        if result.get("message") == "CONTINUAR_CON_IA":
+            # Pasar a IA para respuesta general
+            from app.services.deepseek import AIServiceFactory
             from app.services.database import ConversationRepository
-            contexto = ConversationRepository.get_last(db_user["id"] if db_user else 0)
+            
+            ia_service = AIServiceFactory.get_service()
+            contexto = ConversationRepository.get_last(db_user["id"])
+            
             try:
                 respuesta = ia_service.chat(message["content"], contexto, modo="system")
-            except IAResponseError:
+            except Exception:
                 respuesta = "Disculpa, tuve un problema. Intentá de nuevo."
             
             # Guardar conversación
-            if db_user:
-                contexto.append({"role": "user", "content": message["content"]})
-                contexto.append({"role": "assistant", "content": respuesta})
-                ConversationRepository.save(db_user["id"], contexto[-10:])
+            contexto.append({"role": "user", "content": message["content"]})
+            contexto.append({"role": "assistant", "content": respuesta})
+            ConversationRepository.save(db_user["id"], contexto[-10:])
+        else:
+            # Usar respuesta de la skill
+            respuesta = result.get("message", "✅ Listo")
         
         # Enviar respuesta por WhatsApp
+        from app.services.whatsapp import WhatsAppServiceFactory
+        wa_service = WhatsAppServiceFactory.get_service()
         await wa_service.send_text(message["phone"], respuesta)
-        
-        return {"status": "received"}
-    except Exception as e:
-        logger.error(f"Error en webhook WhatsApp: {e}")
-        return {"status": "error", "detail": str(e)}
         
         return {"status": "received"}
     except Exception as e:

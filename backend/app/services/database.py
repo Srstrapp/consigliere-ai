@@ -373,3 +373,93 @@ class LoginTokenRepository:
         # Buscar usuario
         user = UserRepository.get_by_id(token_data["user_id"])
         return user
+
+
+class DebtRepository:
+    """Repositorio de deudas - encapsula operaciones de debts"""
+    
+    @staticmethod
+    def create(user_id: str, acreedor: str, monto_total: float, fecha_vencimiento: Optional[str] = None) -> Dict:
+        client = SupabaseClient.get_instance()
+        result = client.table("debts").insert({
+            "user_id": user_id,
+            "acreedor": acreedor,
+            "monto_total": monto_total,
+            "fecha_vencimiento": fecha_vencimiento,
+            "estado": "pendiente"
+        }).execute()
+        return result.data[0]
+    
+    @staticmethod
+    def get_by_user(user_id: str) -> List[Dict]:
+        client = SupabaseClient.get_instance()
+        result = (
+            client.table("debts")
+            .select("*")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return result.data
+    
+    @staticmethod
+    def update_pago(debt_id: str, monto_pagado: float) -> Dict:
+        client = SupabaseClient.get_instance()
+        
+        # Obtener deuda actual
+        result = client.table("debts").select("*").eq("id", debt_id).single().execute()
+        if not result.data:
+            return None
+        
+        debt = result.data
+        nuevo_pagado = (debt.get("monto_pagado", 0) or 0) + monto_pagado
+        
+        # Actualizar estado si está pagado
+        estado = "pagado" if nuevo_pagado >= debt["monto_total"] else "pendiente"
+        
+        result = client.table("debts").update({
+            "monto_pagado": nuevo_pagado,
+            "estado": estado
+        }).eq("id", debt_id).execute()
+        return result.data[0]
+
+
+class EmotionalCheckinRepository:
+    """Repositorio de check-ins emocionales - encapsula operaciones de emotional_checkins"""
+    
+    @staticmethod
+    def create(user_id: str, nivel_energia: int, emocion_principal: str = "", notas: str = "") -> Dict:
+        client = SupabaseClient.get_instance()
+        result = client.table("emotional_checkins").insert({
+            "user_id": user_id,
+            "nivel_energia": nivel_energia,
+            "emocion_principal": emocion_principal,
+            "notas": notas
+        }).execute()
+        return result.data[0]
+    
+    @staticmethod
+    def get_latest(user_id: str) -> Optional[Dict]:
+        client = SupabaseClient.get_instance()
+        result = (
+            client.table("emotional_checkins")
+            .select("*")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        return result.data[0] if result.data else None
+    
+    @staticmethod
+    def get_history(user_id: str, dias: int = 7) -> List[Dict]:
+        client = SupabaseClient.get_instance()
+        result = (
+            client.table("emotional_checkins")
+            .select("*")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(dias)
+            .execute()
+        )
+        return result.data
