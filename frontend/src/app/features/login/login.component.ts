@@ -114,6 +114,11 @@ export class LoginComponent implements OnInit {
     this.error.set('');
 
     try {
+      // Asegurarnos de tener el telegramId resuelto antes de proceder
+      if (this.telegramToken && !this.telegramId) {
+        this.telegramId = await this.getTelegramIdFromToken();
+      }
+
       if (this.isLogin) {
         await this.auth.signIn(this.email, this.password);
         // Si no se vinculó en el registro, intentamos vincular ahora
