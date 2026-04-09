@@ -101,10 +101,14 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS - permitir PWA
+# CORS - permitir PWA y Localhost
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:4200",
+        "https://consigliere.up.railway.app",
+        "https://consigliere-ai.up.railway.app"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
