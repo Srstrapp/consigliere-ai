@@ -62,18 +62,29 @@ async def link_telegram_auth(request: Request):
         supabase = create_client(settings.supabase_url, settings.supabase_anon_key)
         
         # Verificar el token de Supabase Auth
-        user_response = supabase.auth.get_user()
+        user_response = supabase.auth.get_user(auth_header.split(" ")[1] if " " in auth_header else auth_header)
         if not user_response.user:
             raise HTTPException(status_code=401, detail="Sesión inválida")
         
         auth_user_id = user_response.user.id
         
         # Vincular el auth_user_id con el usuario de Telegram
-        db_user = UserRepository.get_by_telegram(int(telegram_id))
-        if db_user:
-            UserRepository.link_auth_user(db_user["id"], auth_user_id)
+        # MERGE: Si el trigger creó una fila web inútil, actualizamos la de telegram y borramos la web
+        db_user_telegram = UserRepository.get_by_telegram(int(telegram_id))
         
+        if db_user_telegram:
+            # Transferir el auth_user_id a la cuenta de telegram
+            supabase.table("users").update({
+                "auth_user_id": auth_user_id,
+                "email": user_response.user.email
+            }).eq("id", db_user_telegram["id"]).execute()
+            
+            # Borrar la fila huérfana que creó el trigger (si existe y es diferente)
+            supabase.table("users").delete().eq("auth_user_id", auth_user_id).neq("id", db_user_telegram["id"]).execute()
+
         return {"success": True, "message": "Cuentas vinculadas"}
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
