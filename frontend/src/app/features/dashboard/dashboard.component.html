@@ -71,7 +71,7 @@
         <span class="font-medium">Ajustes</span>
       </div>
       <div
-        (click)="signOut()"
+        (click)="signOut(); $event.stopPropagation()"
         class="nav-item text-red-400/70 hover:text-red-400 hover:bg-red-400/5 cursor-pointer">
         <lucide-icon [name]="LogOut" class="w-5 h-5 flex-shrink-0"></lucide-icon>
         <span class="font-medium">Salir</span>

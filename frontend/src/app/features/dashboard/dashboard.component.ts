@@ -356,7 +356,15 @@ export class DashboardComponent implements OnInit {
   }
 
   async signOut(): Promise<void> {
-    await this.auth.signOut();
+    try {
+      await this.auth.signOut();
+      // Forzar navegación inmediata para feedback instantáneo
+      this.router.navigate(['/login']);
+    } catch (e) {
+      console.error('Error signing out:', e);
+      // Fallback: navegar de todas formas
+      this.router.navigate(['/login']);
+    }
   }
 
   formatMonto(monto: number | string): string {
