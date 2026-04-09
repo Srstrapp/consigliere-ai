@@ -45,9 +45,14 @@ export class LoginComponent implements OnInit {
   telegramToken = '';
   telegramId = '';
 
-  ngOnInit() {
+  async ngOnInit() {
     // Obtener el token de Telegram de la URL
     this.telegramToken = this.route.snapshot.queryParamMap.get('token') || '';
+    
+    // Si hay token, resolvemos el ID de una vez para tenerlo listo
+    if (this.telegramToken) {
+      this.telegramId = await this.getTelegramIdFromToken();
+    }
   }
 
   get isLogin(): boolean {
@@ -111,19 +116,15 @@ export class LoginComponent implements OnInit {
     try {
       if (this.isLogin) {
         await this.auth.signIn(this.email, this.password);
-        // Obtener telegram_id y linked si hay token
-        this.telegramId = await this.getTelegramIdFromToken();
+        // Si no se vinculó en el registro, intentamos vincular ahora
         if (this.telegramId) {
           await this.linkTelegramAccount();
         }
         this.router.navigate(['/dashboard']);
       } else {
-        await this.auth.signUp(this.email, this.password, this.nombre);
-        // Obtener telegram_id y linked si hay token
-        this.telegramId = await this.getTelegramIdFromToken();
-        if (this.telegramId) {
-          await this.linkTelegramAccount();
-        }
+        // En el registro pasamos el telegramId directamente para que el Trigger lo una
+        await this.auth.signUp(this.email, this.password, this.nombre, this.telegramId);
+        
         this.error.set('');
         this.mode.set('login');
         this.error.set('✅ Cuenta creada. Iniciá sesión.');

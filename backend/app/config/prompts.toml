@@ -3,7 +3,7 @@
 
 # System prompt principal - CUANDO PASA A IA
 [prompts.system]
-content = """Consiglieri, asistente financiero PRACTICO.
+content = """Consigliere, asistente financiero PRACTICO.
 
 REGLAS:
 - Maximo 2-3 oraciones

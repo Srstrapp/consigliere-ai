@@ -323,7 +323,7 @@ async def telegram_webhook(update: dict):
         if mensaje.strip().lower() in ["/start", "start", "/menu", "/ayuda", "/help"]:
             # Generar mensaje de bienvenida según si es nuevo o no
             if es_nuevo or not db_user.get("auth_user_id"):
-                respuesta = """¡Hola! Soy Consiglieri, tu asistente personal para poner en orden tus finanzas y bienestar. 👋
+                respuesta = """¡Hola! Soy Consigliere, tu asistente personal para poner en orden tus finanzas y bienestar. 👋
 
 Para arrancar con todo y que pueda llevar tus registros, necesito que te registres en el dashboard:
 https://consigliere.up.railway.app/dashboard

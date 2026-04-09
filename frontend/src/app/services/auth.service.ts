@@ -123,13 +123,14 @@ export class AuthService {
     if (error) throw error;
   }
 
-  async signUp(email: string, password: string, nombre: string): Promise<void> {
+  async signUp(email: string, password: string, nombre: string, telegramId?: string): Promise<void> {
     const { data, error } = await this.sb.client.auth.signUp({ 
       email, 
       password,
       options: {
         data: {
-          full_name: nombre
+          full_name: nombre,
+          telegram_id: telegramId
         }
       }
     });
