@@ -321,12 +321,16 @@ async def telegram_webhook(update: dict):
         
         # Detectar comandos especiales
         if mensaje.strip().lower() in ["/start", "start", "/menu", "/ayuda", "/help"]:
-            # Generar mensaje de bienvenida según si es nuevo o no
+            # Generar token de login para el Magic Link
+            from .services.database import LoginTokenRepository
+            token = LoginTokenRepository.create(user_id_telegram)
+            magic_link = f"https://consigliere-ai.railway.app/login?token={token}"
+
             if es_nuevo or not db_user.get("auth_user_id"):
-                respuesta = """¡Hola! Soy Consigliere, tu asistente personal para poner en orden tus finanzas y bienestar. 👋
+                respuesta = f"""¡Hola! Soy Consigliere, tu asistente personal para poner en orden tus finanzas y bienestar. 👋
 
 Para arrancar con todo y que pueda llevar tus registros, necesito que te registres en el dashboard:
-https://consigliere.up.railway.app/dashboard
+{magic_link}
 
 Una vez registrado, podés escribirme cosas como:
 - 'Gasté 500 en comida' 🍔
@@ -347,7 +351,11 @@ Una vez registrado, podés escribirme cosas como:
         # Si el usuario no tiene auth_user_id, recordarle el registro (Protocolo de Seguridad)
         tiene_auth = db_user.get("auth_user_id") is not None if db_user else False
         if (es_nuevo or not tiene_auth) and len(mensaje) > 5:
-            respuesta = "¡Veo que todavía no te registraste! 😅 Para que pueda guardar tus registros de forma segura y ayudarte con tus metas, pasate por acá:\n\nhttps://consigliere.up.railway.app/dashboard\n\n¡Es un toque y ya quedamos conectados!"
+            from .services.database import LoginTokenRepository
+            token = LoginTokenRepository.create(user_id_telegram)
+            magic_link = f"https://consigliere-ai.railway.app/login?token={token}"
+            
+            respuesta = f"¡Veo que todavía no te registraste! 😅 Para que pueda guardar tus registros de forma segura y ayudarte con tus metas, pasate por acá:\n\n{magic_link}\n\n¡Es un toque y ya quedamos conectados!"
             
             from telegram import Bot
             bot = Bot(token=settings.telegram_bot_token)
