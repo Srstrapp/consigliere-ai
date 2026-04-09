@@ -72,7 +72,8 @@ export class LoginComponent implements OnInit {
     if (!this.telegramToken) return '';
     
     try {
-      const res = await fetch(`/api/auth/token?token=${this.telegramToken}`);
+      const { environment } = await import('../../../environments/environment');
+      const res = await fetch(`${environment.apiUrl}/auth/token?token=${this.telegramToken}`);
       const data = await res.json();
       if (data.success) {
         return data.telegram_id;
