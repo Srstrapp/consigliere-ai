@@ -252,8 +252,8 @@
                         <lucide-icon [name]="Wallet" class="w-5 h-5 text-silk-400"></lucide-icon>
                       </div>
                       <div class="min-w-0">
-                        <p class="text-sm text-white font-bold tracking-tight truncate max-w-[130px] md:max-w-none">{{ gasto['descripcion'] || gasto['description'] || 'Sin descripcion' }}</p>
-                        <p class="text-[10px] text-silk-500 uppercase tracking-widest">{{ gasto['categoria'] || gasto['category'] }}</p>
+                        <p class="text-sm text-white font-bold tracking-tight truncate max-w-[130px] md:max-w-none">{{ gasto['descripción'] || gasto['descripcion'] || gasto['description'] || 'Sin descripción' }}</p>
+                        <p class="text-[10px] text-silk-500 uppercase tracking-widest">{{ gasto['categoría'] || gasto['categoria'] || gasto['category'] || 'general' }}</p>
                       </div>
                     </div>
                     <span class="text-sm font-display font-bold text-white flex-shrink-0 ml-2">{{ formatMonto(gasto.monto) }}</span>
@@ -290,39 +290,46 @@
         <div class="flex flex-col space-y-4 md:space-y-8">
 
           <!-- Top Stats -->
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
             <!-- Budget -->
-            <div class="dash-card glass-card p-5 md:p-6 flex items-center justify-between">
-              <div>
-                <span class="text-xs font-bold uppercase tracking-widest text-silk-500">Presupuesto Mensual</span>
-                <div class="text-xl md:text-2xl text-white mt-1">{{ formatMonto(presupuestoMensual) }}</div>
+            <div class="dash-card glass-card p-4 md:p-6 flex flex-col justify-between">
+              <div class="flex justify-between items-start mb-2">
+                <span class="text-[10px] md:text-xs font-bold uppercase tracking-widest text-silk-500">Presupuesto</span>
+                <lucide-icon [name]="Target" class="w-4 h-4 md:w-5 md:h-5 text-aurora-500"></lucide-icon>
               </div>
-              <div class="w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/5 flex items-center justify-center flex-shrink-0">
-                <lucide-icon [name]="Target" class="w-5 h-5 md:w-6 md:h-6 text-aurora-500"></lucide-icon>
+              <div class="text-lg md:text-2xl font-bold text-white truncate">{{ formatMonto(presupuestoMensual) }}</div>
+            </div>
+
+            <!-- Incomes -->
+            <div class="dash-card glass-card p-4 md:p-6 flex flex-col justify-between border-b-2" [ngClass]="totalIngresosMes > 0 ? 'border-green-400/50' : 'border-transparent'">
+              <div class="flex justify-between items-start mb-2">
+                <span class="text-[10px] md:text-xs font-bold uppercase tracking-widest text-silk-500">Ingresos</span>
+                <div class="w-6 h-6 rounded bg-green-500/10 flex items-center justify-center">
+                  <lucide-icon [name]="TrendingUp" class="w-3 h-3 text-green-400"></lucide-icon>
+                </div>
               </div>
+              <div class="text-lg md:text-2xl font-bold text-white truncate">{{ formatMonto(totalIngresosMes) }}</div>
             </div>
 
             <!-- Total Spent -->
-            <div class="dash-card glass-card p-5 md:p-6 flex items-center justify-between">
-              <div>
-                <span class="text-xs font-bold uppercase tracking-widest text-silk-500">Gastado este Mes</span>
-                <div class="text-xl md:text-2xl text-white mt-1">{{ formatMonto(totalGastadoMes) }}</div>
+            <div class="dash-card glass-card p-4 md:p-6 flex flex-col justify-between border-b-2" [ngClass]="totalGastadoMes > 0 ? 'border-red-400/50' : 'border-transparent'">
+              <div class="flex justify-between items-start mb-2">
+                <span class="text-[10px] md:text-xs font-bold uppercase tracking-widest text-silk-500">Gastado</span>
+                <div class="w-6 h-6 rounded bg-red-500/10 flex items-center justify-center">
+                  <lucide-icon [name]="TrendingUp" class="w-3 h-3 text-red-400 rotate-180"></lucide-icon>
+                </div>
               </div>
-              <div class="w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/5 flex items-center justify-center flex-shrink-0">
-                <lucide-icon [name]="TrendingUp" class="w-5 h-5 md:w-6 md:h-6 text-red-400"></lucide-icon>
-              </div>
+              <div class="text-lg md:text-2xl font-bold text-white truncate">{{ formatMonto(totalGastadoMes) }}</div>
             </div>
 
             <!-- Remaining -->
-            <div class="dash-card glass-card p-5 md:p-6 flex items-center justify-between">
-              <div>
-                <span class="text-xs font-bold uppercase tracking-widest text-silk-500">Saldo Disponible</span>
-                <div class="text-xl md:text-2xl text-white mt-1" [ngClass]="{'text-red-400': (presupuestoMensual - totalGastadoMes) < 0}">
-                  {{ formatMonto(presupuestoMensual - totalGastadoMes) }}
-                </div>
+            <div class="dash-card glass-card p-4 md:p-6 flex flex-col justify-between">
+              <div class="flex justify-between items-start mb-2">
+                <span class="text-[10px] md:text-xs font-bold uppercase tracking-widest text-silk-500">Saldo Disponible</span>
+                <lucide-icon [name]="Wallet" class="w-4 h-4 md:w-5 md:h-5" [ngClass]="saldoDisponible < 0 ? 'text-red-400' : 'text-green-400'"></lucide-icon>
               </div>
-              <div class="w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/5 flex items-center justify-center flex-shrink-0">
-                <lucide-icon [name]="Wallet" class="w-5 h-5 md:w-6 md:h-6 text-green-400"></lucide-icon>
+              <div class="text-lg md:text-2xl font-bold truncate" [ngClass]="saldoDisponible < 0 ? 'text-red-400' : 'text-white'">
+                {{ formatMonto(saldoDisponible) }}
               </div>
             </div>
           </div>
@@ -331,10 +338,10 @@
           <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 md:gap-6">
             <!-- Goals & Metas -->
             <div class="xl:col-span-8 space-y-4 md:space-y-6">
-              <div class="dash-card glass-card p-5 md:p-8">
+              <div class="dash-card glass-card p-5 md:p-8 relative">
                 <div class="flex justify-between items-center mb-5 md:mb-6">
                   <h3 class="text-lg md:text-xl">Mis Metas Financieras</h3>
-                  <button class="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-md transition-colors flex items-center space-x-2">
+                  <button (click)="isMetaModalOpen.set(true)" class="text-xs bg-aurora-500/20 hover:bg-aurora-500/40 text-aurora-300 px-3 py-1.5 rounded-md transition-colors flex items-center space-x-2 font-bold cursor-pointer relative z-10">
                     <lucide-icon [name]="Plus" class="w-3 h-3"></lucide-icon><span>Nueva Meta</span>
                   </button>
                 </div>
@@ -343,27 +350,47 @@
                   <div class="h-24 bg-white/5 rounded-lg animate-pulse mb-4"></div>
                   <div class="h-24 bg-white/5 rounded-lg animate-pulse"></div>
                 } @else if (metas.length === 0) {
-                  <div class="text-center py-10 bg-white/5 rounded-lg">
+                  <div class="text-center py-10 bg-white/5 rounded-lg border border-dashed border-white/10">
                     <lucide-icon [name]="Target" class="w-10 h-10 text-white/20 mx-auto mb-3"></lucide-icon>
-                    <p class="text-silk-500">Aún no tienes metas financieras.</p>
+                    <p class="text-silk-500 font-medium">Aún no tenés metas financieras.</p>
                     <p class="text-xs text-silk-500/60 mt-1">Sugerencia: Pídele al bot "Quiero ahorrar 5000 para un auto"</p>
+                    <button (click)="isMetaModalOpen.set(true)" class="mt-4 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm text-white transition-colors cursor-pointer">
+                      O créala manualmente aquí
+                    </button>
                   </div>
                 } @else {
                   <div class="space-y-4">
                     @for (meta of metas; track meta.id) {
-                      <div class="bg-white/5 p-4 md:p-5 rounded-lg border border-white/5">
-                        <div class="flex justify-between items-center mb-3">
-                          <div>
-                            <h4 class="font-bold text-white">{{ meta.nombre }}</h4>
-                            <p class="text-xs text-silk-500">Progreso: {{ formatMonto(meta.current_amount) }} de {{ formatMonto(meta.meta_amount) }}</p>
+                      <div class="bg-white/5 p-4 md:p-5 rounded-lg border border-white/5 hover:border-aurora-500/30 transition-colors">
+                        <div class="flex flex-col md:flex-row justify-between md:items-center mb-4 gap-2">
+                          <div class="flex-1">
+                            <h4 class="font-bold text-white text-base md:text-lg">{{ meta.nombre }}</h4>
+                            <p class="text-xs text-silk-500 mt-0.5">Progreso histórico: {{ formatMonto(meta.current_amount) }} / {{ formatMonto(meta.meta_amount) }}</p>
                           </div>
-                          <div class="text-right">
+                          
+                          <div class="text-left md:text-right flex items-center justify-between md:flex-col md:items-end">
+                            <span class="text-sm font-medium" [ngClass]="(meta.meta_amount - meta.current_amount) <= saldoDisponible ? 'text-green-400' : 'text-red-400'">
+                              Falta: {{ formatMonto(meta.meta_amount - meta.current_amount) }}
+                            </span>
                             <span class="text-lg md:text-xl font-display font-bold text-aurora-500">{{ getMetaProgreso(meta) }}%</span>
                           </div>
                         </div>
-                        <div class="w-full h-2 bg-black/40 rounded-full overflow-hidden">
-                          <div class="h-full bg-aurora-500 rounded-full transition-all duration-1000" [style.width.%]="getMetaProgreso(meta)"></div>
+                        
+                        <div class="w-full h-2.5 bg-black/40 rounded-full overflow-hidden">
+                          <div class="h-full bg-gradient-to-r from-aurora-500 to-indigo-400 rounded-full transition-all duration-1000 shadow-glow" [style.width.%]="getMetaProgreso(meta)"></div>
                         </div>
+                        
+                        @if ((meta.meta_amount - meta.current_amount) > 0) {
+                          <div class="mt-3 text-[10px] md:text-xs pt-3 border-t border-white/5 flex items-start space-x-2">
+                            @if ((meta.meta_amount - meta.current_amount) <= saldoDisponible) {
+                              <lucide-icon [name]="CheckCircle" class="w-3.5 h-3.5 text-green-400 flex-shrink-0 mt-0.5"></lucide-icon>
+                              <span class="text-silk-400">Podrías completar esta meta hoy con tu saldo disponible ({{ formatMonto(saldoDisponible) }}).</span>
+                            } @else {
+                              <lucide-icon [name]="Clock" class="w-3.5 h-3.5 text-red-400 flex-shrink-0 mt-0.5"></lucide-icon>
+                              <span class="text-red-300/80">Tu saldo de {{ formatMonto(saldoDisponible) }} es insuficiente para cerrarla este mes.</span>
+                            }
+                          </div>
+                        }
                       </div>
                     }
                   </div>
@@ -409,8 +436,8 @@
                             <lucide-icon [name]="Wallet" class="w-4 h-4 text-silk-400"></lucide-icon>
                           </div>
                           <div class="min-w-0">
-                            <p class="text-sm text-white font-medium truncate max-w-[120px] md:max-w-[100px] xl:max-w-[130px]">{{ gasto['descripcion'] || gasto['description'] || 'Gasto' }}</p>
-                            <p class="text-[10px] text-silk-500 uppercase">{{ gasto['categoria'] || gasto['category'] || 'Otro' }}</p>
+                            <p class="text-sm text-white font-medium truncate max-w-[120px] md:max-w-[100px] xl:max-w-[130px]">{{ gasto['descripción'] || gasto['descripcion'] || 'Gasto no especificado' }}</p>
+                            <p class="text-[10px] text-silk-500 uppercase">{{ gasto['categoría'] || gasto['categoria'] || 'General' }}</p>
                           </div>
                         </div>
                         <span class="text-sm font-bold text-white flex-shrink-0 ml-2">{{ formatMonto(gasto.monto) }}</span>
@@ -462,3 +489,38 @@
 
   </main>
 </div>
+
+<!-- ══ GOAL CREATION MODAL ══ -->
+@if (isMetaModalOpen()) {
+  <div class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" (click)="isMetaModalOpen.set(false)"></div>
+    <div class="relative glass-card w-full max-w-md p-6 border border-white/10 shadow-2xl animate-fade-in-up">
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="text-xl font-bold font-display text-white">Nueva Meta</h3>
+        <button (click)="isMetaModalOpen.set(false)" class="text-silk-500 hover:text-white transition-colors cursor-pointer">
+          <lucide-icon [name]="X" class="w-5 h-5"></lucide-icon>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs uppercase tracking-widest text-silk-500 mb-1.5 font-bold">Concepto (ej. Auto, Vacaciones)</label>
+          <input type="text" [(ngModel)]="nuevaMetaNombre" placeholder="¿Para qué vas a ahorrar?" class="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-aurora-500/50 transition-colors">
+        </div>
+        <div>
+          <label class="block text-xs uppercase tracking-widest text-silk-500 mb-1.5 font-bold">Monto Total a Alcanzar</label>
+          <input type="number" [(ngModel)]="nuevaMetaMonto" placeholder="Ej: 5000" class="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-aurora-500/50 transition-colors">
+        </div>
+      </div>
+
+      <div class="mt-8 flex gap-3">
+        <button (click)="isMetaModalOpen.set(false)" class="flex-1 py-3 text-sm font-bold text-silk-300 bg-white/5 hover:bg-white/10 rounded-xl transition-colors cursor-pointer">
+          Cancelar
+        </button>
+        <button (click)="crearNuevaMeta()" [disabled]="!nuevaMetaNombre || !nuevaMetaMonto" class="flex-1 py-3 text-sm font-bold text-white bg-aurora-600 hover:bg-aurora-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors cursor-pointer shadow-glow">
+          Crear Meta
+        </button>
+      </div>
+    </div>
+  </div>
+}

@@ -124,6 +124,14 @@ class ConsiglieriSkillManager:
         if self._pending_action:
             return self._execute_pending(message)
         
+        # Detectar comandos especiales primero
+        msg_lower = message.lower().strip()
+        if msg_lower in ["/start", "start", "/menu", "/ayuda", "/help", "menu", "ayuda"]:
+            return {
+                "success": True,
+                "message": "MENU"
+            }
+        
         # Detectar intención
         intention = self.detect_intention(message)
         

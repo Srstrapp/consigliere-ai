@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, PLATFORM_ID, signal } from '@angular/core';
 import { isPlatformBrowser, CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 
 import {
   LucideAngularModule,
@@ -27,7 +28,7 @@ import { SupabaseService } from '../../services/supabase.service';
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule],
+  imports: [CommonModule, FormsModule, LucideAngularModule],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css',
 })
@@ -57,6 +58,11 @@ export class DashboardComponent implements OnInit {
 
   activeDomain = 'dashboard';
   sidebarOpen = signal(false);
+  isMetaModalOpen = signal(false);
+
+  // Nueva Meta form state
+  nuevaMetaNombre = '';
+  nuevaMetaMonto = '';
 
   toggleSidebar(): void {
     this.sidebarOpen.update(v => !v);
@@ -72,6 +78,7 @@ export class DashboardComponent implements OnInit {
   deudas: any[] = [];
   presupuestoMensual = 0;
   totalGastadoMes = 0;
+  totalIngresosMes = 0;
   loadingData = true;
 
   // ── Emocional ──
@@ -136,7 +143,7 @@ export class DashboardComponent implements OnInit {
       const userId = botUser?.id ?? user.id;
 
       // Disparamos todo en paralelo
-      const [gastosRes, metasRes, deudasRes, checkinRes, legalRes] = await Promise.allSettled([
+      const [gastosRes, metasRes, deudasRes, expensesMontoRes, incomesMontoRes, checkinRes, legalRes] = await Promise.allSettled([
         this.sb.client
           .from('expenses')
           .select('*')
@@ -160,6 +167,18 @@ export class DashboardComponent implements OnInit {
           .limit(4),
 
         this.sb.client
+          .from('expenses')
+          .select('monto')
+          .eq('user_id', userId)
+          .gte('created_at', startOfMonth.toISOString()),
+
+        this.sb.client
+          .from('incomes')
+          .select('monto')
+          .eq('user_id', userId)
+          .gte('created_at', startOfMonth.toISOString()),
+
+        this.sb.client
           .from('emotional_checkins')
           .select('nivel_energia, emocion_principal, created_at')
           .eq('user_id', userId)
@@ -177,10 +196,19 @@ export class DashboardComponent implements OnInit {
           .single(),
       ]);
 
-      // Gastos
+      // Gastos Recientes (UI Limitada)
       if (gastosRes.status === 'fulfilled' && gastosRes.value.data) {
         this.gastos = gastosRes.value.data;
-        this.totalGastadoMes = this.gastos.reduce((acc, g) => acc + Number(g.monto ?? 0), 0);
+      }
+
+      // Total Gastado del Mes
+      if (expensesMontoRes.status === 'fulfilled' && expensesMontoRes.value.data) {
+        this.totalGastadoMes = expensesMontoRes.value.data.reduce((acc: number, g: any) => acc + Number(g.monto ?? 0), 0);
+      }
+
+      // Total Ingresos del Mes
+      if (incomesMontoRes.status === 'fulfilled' && incomesMontoRes.value.data) {
+        this.totalIngresosMes = incomesMontoRes.value.data.reduce((acc: number, i: any) => acc + Number(i.monto ?? 0), 0);
       }
 
       // Metas
@@ -192,8 +220,6 @@ export class DashboardComponent implements OnInit {
       if (deudasRes.status === 'fulfilled' && deudasRes.value.data) {
         this.deudas = deudasRes.value.data;
       }
-
-      // Checkin emocional
       if (checkinRes.status === 'fulfilled' && checkinRes.value.data) {
         this.ultimoCheckin = checkinRes.value.data;
         this.energiaNivel = this.ultimoCheckin?.nivel_energia ?? 0;
@@ -225,6 +251,37 @@ export class DashboardComponent implements OnInit {
         { duration: 0.7, opacity: 1, ease: 'power3.out' }
       );
     } catch (_) {}
+  }
+
+  get saldoDisponible(): number {
+    return this.presupuestoMensual + this.totalIngresosMes - this.totalGastadoMes;
+  }
+
+  async crearNuevaMeta(): Promise<void> {
+    if (!this.nuevaMetaNombre || !this.nuevaMetaMonto) return;
+    const user = this.auth.user();
+    if (!user) return;
+
+    try {
+      const { data: botUser } = await this.sb.client.from('users').select('id').limit(1).single();
+      const userId = botUser?.id ?? user.id;
+
+      const newGoal = {
+        user_id: userId,
+        nombre: this.nuevaMetaNombre,
+        meta_amount: Number(this.nuevaMetaMonto),
+        current_amount: 0
+      };
+
+      const { data, error } = await this.sb.client.from('goals').insert(newGoal).select().single();
+      if (!error && data) {
+        this.metas = [data, ...this.metas];
+      }
+    } catch (_) {}
+
+    this.isMetaModalOpen.set(false);
+    this.nuevaMetaNombre = '';
+    this.nuevaMetaMonto = '';
   }
 
   setDomain(domain: string): void {

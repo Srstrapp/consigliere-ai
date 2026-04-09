@@ -313,9 +313,61 @@ async def telegram_webhook(update: dict):
         # Obtener o crear usuario en Supabase
         from app.services.database import UserRepository
         db_user = UserRepository.get_by_telegram(user_id_telegram)
+        es_nuevo = db_user is None
+        
         if not db_user:
             nombre = update_obj.message.from_user.first_name or "Usuario"
             db_user = UserRepository.create(user_id_telegram, nombre)
+        
+        # Detectar comandos especiales
+        if mensaje.strip().lower() in ["/start", "start", "/menu", "/ayuda", "/help"]:
+            # Generar mensaje de bienvenida según si es nuevo o no
+            if es_nuevo:
+                respuesta = f"""Hola! Soy Consiglieri, tu asistente.
+
+Te ayudo con:
+- Finanzas: registrar gastos, metas de ahorro, presupuesto
+- Bienestar: como estas emocionalmente
+- Legal: dudas simples
+
+Para usar todas las funciones, registrate en el dashboard.
+Si ya estas registrado, simplemente escribime lo que necesitás."""
+            else:
+                presupuesto = db_user.get("presupuesto_mensual", 1000) if db_user else 1000
+                respuesta = f"""Bienvenido de vuelta!
+
+Tu presupuesto: ${presupuesto}/mes
+
+Escribime:
+- 'gasté X' para registrar gasto
+- 'meta X Y' para crear meta
+- 'estoy stress' para hablar
+- O lo que necesites"""
+            
+            # Enviar respuesta
+            from telegram import Bot
+            bot = Bot(token=settings.telegram_bot_token)
+            await bot.send_message(chat_id=update_obj.message.chat_id, text=respuesta)
+            return {"status": "ok"}
+        
+        # Si es usuario nuevo y no tiene auth, responder diferente
+        tiene_auth = db_user.get("auth_user_id") is not None if db_user else False
+        if es_nuevo and not tiene_auth and len(mensaje) > 5:
+            # Usuario nuevo sin registro, responder con info
+            respuesta = """Vos sos nuevo! Para usar todas las funciones, registrate en el dashboard.
+
+Una vez registrado, puedo ayudarte con:
+- Registrar gastos
+- Crear metas de ahorro  
+- Hablar de como estas
+- Consultar presupuesto
+
+Registrate y volvé!"""
+            
+            from telegram import Bot
+            bot = Bot(token=settings.telegram_bot_token)
+            await bot.send_message(chat_id=update_obj.message.chat_id, text=respuesta)
+            return {"status": "ok"}
         
         # Usar Skill Manager para procesar el mensaje
         from app.skills import get_skill_manager
@@ -348,7 +400,7 @@ async def telegram_webhook(update: dict):
             ConversationRepository.save(db_user["id"], contexto[-10:])
         else:
             # Usar respuesta de la skill
-            respuesta = result.get("message", "✅ Listo")
+            respuesta = result.get("message", "Listo")
         
         # Enviar respuesta por Telegram
         from telegram import Bot
