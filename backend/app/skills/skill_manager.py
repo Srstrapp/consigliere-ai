@@ -13,6 +13,9 @@ from ..services.database import UserRepository
 
 logger = logging.getLogger(__name__)
 
+# Persistencia de estado en memoria (Global por proceso)
+# Esto evita el error de la base de datos y soluciona el bucle para la presentación
+_USER_STATES: Dict[str, Dict[str, Any]] = {}
 
 # ==================== PATRONES DE INTENCIÓN ====================
 
@@ -91,15 +94,29 @@ INTENTION_PATTERNS = {
 class ConsiglieriSkillManager:
     """
     Maneja la carga y ejecución de skills.
-    Implementa el flujo de persistencia de estado en BD para evitar bucles.
+    Implementa el flujo de persistencia de estado en memoria para evitar errores de BD.
     """
     
     def __init__(self, execution_engine):
         self.engine = execution_engine
         self._current_user_id: Optional[str] = None
         
-        logger.info("ConsiglieriSkillManager inicializado")
+        logger.info("ConsiglieriSkillManager inicializado con persistencia en memoria")
     
+    def _save_state(self, user_id: str, action: str, data: Dict[str, Any] = None):
+        """Guardar estado en el diccionario global"""
+        _USER_STATES[user_id] = {
+            "action": action,
+            "data": data or {}
+        }
+        logger.debug(f"Estado guardado para {user_id[:8]}: {action}")
+
+    def _clear_state(self, user_id: str):
+        """Limpiar estado del usuario"""
+        if user_id in _USER_STATES:
+            del _USER_STATES[user_id]
+            logger.debug(f"Estado limpiado para {user_id[:8]}")
+
     def detect_intention(self, message: str) -> IntentionType:
         """Detectar intención del mensaje usando patrones regex."""
         message_lower = message.lower().strip()
@@ -143,13 +160,13 @@ class ConsiglieriSkillManager:
     async def execute(self, message: str, user_id: str) -> Dict[str, Any]:
         """
         Ejecutar la skill apropiada.
-        AHORA CARGA EL ESTADO DESDE LA BD.
+        AHORA CARGA EL ESTADO DESDE MEMORIA GLOBAL.
         """
         logger.info(f"=== PROCESANDO MENSAJE === User: {user_id[:8]}... | Mensaje: {message[:50]}...")
         self._current_user_id = user_id
         
-        # 1. Cargar estado desde la base de datos
-        state = UserRepository.get_pending_state(user_id)
+        # 1. Cargar estado desde memoria
+        state = _USER_STATES.get(user_id, {"action": None, "data": {}})
         pending_action = state.get("action")
         pending_data = state.get("data") or {}
         
@@ -198,7 +215,7 @@ class ConsiglieriSkillManager:
         """Manejar gasto - extraer monto y PREGUNTAR categoría"""
         monto_match = re.search(r"(\d+(?:\.\d+)?)", message)
         if not monto_match:
-            UserRepository.set_pending_state(self._current_user_id, ActionState.WAIT_MONTO.value)
+            self._save_state(self._current_user_id, ActionState.WAIT_MONTO.value)
             return {
                 "success": True,
                 "message": "¿Cuánto gastaste, hermano? Así lo anoto de una vez."
@@ -207,8 +224,8 @@ class ConsiglieriSkillManager:
         monto = float(monto_match.group(1))
         categoria = self._infer_categoria(message)
         
-        # Guardar en BD para el próximo paso
-        UserRepository.set_pending_state(
+        # Guardar en memoria para el próximo paso
+        self._save_state(
             self._current_user_id, 
             ActionState.WAIT_CATEGORIA.value, 
             {"monto": monto, "categoria": categoria}
@@ -223,7 +240,7 @@ class ConsiglieriSkillManager:
         """Manejar meta de ahorro - pregunta plazo e ingreso"""
         monto_match = re.search(r"(\d+(?:\.\d+)?)", message)
         if not monto_match:
-            UserRepository.set_pending_state(self._current_user_id, ActionState.WAIT_MONTO.value, {"type": "meta"})
+            self._save_state(self._current_user_id, ActionState.WAIT_MONTO.value, {"type": "meta"})
             return {
                 "success": True,
                 "message": "¿Cuál es el monto de esa meta que querés alcanzar?"
@@ -233,7 +250,7 @@ class ConsiglieriSkillManager:
         nombre_match = re.search(r"para\s+(?:un|una|el|la)?\s*(\w+)", message)
         nombre = nombre_match.group(1) if nombre_match else "Meta"
         
-        UserRepository.set_pending_state(
+        self._save_state(
             self._current_user_id, 
             ActionState.WAIT_META_DETAILS.value, 
             {"nombre": nombre, "monto": monto}
@@ -254,7 +271,7 @@ class ConsiglieriSkillManager:
             }
         
         monto = float(monto_match.group(1))
-        UserRepository.set_pending_state(
+        self._save_state(
             self._current_user_id, 
             ActionState.WAIT_CONFIRMA_INGRESO.value, 
             {"monto": monto}
@@ -291,7 +308,7 @@ class ConsiglieriSkillManager:
     
     async def _handle_psicologia(self, message: str, intention: str) -> Dict[str, Any]:
         """Manejar tema psicológico"""
-        UserRepository.set_pending_state(self._current_user_id, ActionState.WAIT_ENERGIA.value)
+        self._save_state(self._current_user_id, ActionState.WAIT_ENERGIA.value)
         return {
             "success": True,
             "message": "Te entiendo. Antes de seguir, ¿del 1 al 100 cómo sentís tu energía ahora mismo?"
@@ -299,7 +316,7 @@ class ConsiglieriSkillManager:
     
     async def _handle_checkin(self, message: str) -> Dict[str, Any]:
         """Manejar check-in emocional"""
-        UserRepository.set_pending_state(self._current_user_id, ActionState.WAIT_ENERGIA.value)
+        self._save_state(self._current_user_id, ActionState.WAIT_ENERGIA.value)
         return {
             "success": True,
             "message": "¿Cómo va ese día? Contame del 1 al 100 cómo estás de ánimo y energía."
@@ -344,18 +361,18 @@ class ConsiglieriSkillManager:
     # ==================== SEGUNDOS PASOS ====================
     
     async def _execute_pending(self, message: str, action: str, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Ejecutar acción pendiente cargada de la BD"""
+        """Ejecutar acción pendiente cargada de memoria"""
         
         if action == ActionState.WAIT_MONTO.value:
             monto_match = re.search(r"(\d+(?:\.\d+)?)", message)
             if monto_match:
                 monto = float(monto_match.group(1))
                 if data.get("type") == "meta":
-                    UserRepository.set_pending_state(self._current_user_id, ActionState.WAIT_META_DETAILS.value, {"monto": monto})
+                    self._save_state(self._current_user_id, ActionState.WAIT_META_DETAILS.value, {"monto": monto})
                     return {"success": True, "message": f"Dale, ${monto}. ¿Para qué es esta meta y en cuánto tiempo la querés cumplir?"}
                 
                 result = self.engine.expense_create(user_id=self._current_user_id, monto=monto, categoria="Otro", descripcion=message)
-                UserRepository.clear_pending_state(self._current_user_id)
+                self._clear_state(self._current_user_id)
                 return {"success": result["success"], "message": "¡Listo! Ya quedó registrado el gasto. ¿Algo más?"}
         
         elif action == ActionState.WAIT_CATEGORIA.value:
@@ -363,7 +380,7 @@ class ConsiglieriSkillManager:
             monto = data.get('monto', 0)
             if monto > 0:
                 result = self.engine.expense_create(user_id=self._current_user_id, monto=monto, categoria=categoria, descripcion=message)
-                UserRepository.clear_pending_state(self._current_user_id)
+                self._clear_state(self._current_user_id)
                 return {"success": result["success"], "message": f"Perfecto, guardé los ${monto} en {categoria}. ¡Bien ahí por llevar el control!"}
         
         elif action == ActionState.WAIT_META_DETAILS.value:
@@ -376,7 +393,7 @@ class ConsiglieriSkillManager:
             ingreso = float(ingreso_match.group(1)) if ingreso_match else 0
             
             result = self.engine.goal_create(user_id=self._current_user_id, nombre=nombre, meta_amount=monto)
-            UserRepository.clear_pending_state(self._current_user_id)
+            self._clear_state(self._current_user_id)
             
             if meses > 0:
                 ahorro_mensual = monto / meses
@@ -390,7 +407,7 @@ class ConsiglieriSkillManager:
             if energia_match:
                 energia = int(energia_match.group(1))
                 result = self.engine.emotional_checkin_create(user_id=self._current_user_id, nivel_energia=energia, notas=message)
-                UserRepository.clear_pending_state(self._current_user_id)
+                self._clear_state(self._current_user_id)
                 
                 if energia >= 70:
                     msg = f"¡Qué nivel! Con {energia} de energía estás para comerte el mundo. Aprovechá ese impulso."
@@ -405,14 +422,14 @@ class ConsiglieriSkillManager:
             if any(p in msg_lower for p in ["si", "sí", "fijo", "mensual", "correcto"]):
                 monto = data.get('monto', 0)
                 result = self.engine.income_create(user_id=self._current_user_id, monto=monto, fuente="Ingreso mensual")
-                UserRepository.clear_pending_state(self._current_user_id)
+                self._clear_state(self._current_user_id)
                 return {"success": result["success"], "message": f"Excelente, ya sumé esos ${monto} a tus ingresos del mes."}
             else:
                 monto = data.get('monto', 0)
-                UserRepository.set_pending_state(self._current_user_id, ActionState.WAIT_CATEGORIA.value, {"monto": monto})
+                self._save_state(self._current_user_id, ActionState.WAIT_CATEGORIA.value, {"monto": monto})
                 return {"success": True, "message": f"Ah, entonces es un gasto de ${monto}. ¿En qué categoría lo pongo?"}
         
-        UserRepository.clear_pending_state(self._current_user_id)
+        self._clear_state(self._current_user_id)
         return {"success": False, "message": "Me perdí un poco, hermano. ¿Podés repetirme lo último?"}
     
     # ==================== HELPERS ====================
