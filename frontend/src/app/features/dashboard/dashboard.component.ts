@@ -60,10 +60,16 @@ export class DashboardComponent implements OnInit {
   activeDomain = 'dashboard';
   sidebarOpen = signal(false);
   isMetaModalOpen = signal(false);
+  isGastoModalOpen = signal(false);
 
   // Nueva Meta form state
   nuevaMetaNombre = '';
   nuevaMetaMonto = '';
+
+  // Nuevo Gasto form state
+  nuevoGastoConcepto = '';
+  nuevoGastoMonto = '';
+  nuevoGastoCategoria = 'general';
 
   toggleSidebar(): void {
     this.sidebarOpen.update(v => !v);
@@ -284,6 +290,36 @@ export class DashboardComponent implements OnInit {
     this.isMetaModalOpen.set(false);
     this.nuevaMetaNombre = '';
     this.nuevaMetaMonto = '';
+  }
+
+  async crearNuevoGasto(): Promise<void> {
+    if (!this.nuevoGastoConcepto || !this.nuevoGastoMonto) return;
+    const user = this.auth.user();
+    if (!user) return;
+
+    try {
+      const { data: botUser } = await this.sb.client.from('users').select('id').limit(1).single();
+      const userId = botUser?.id ?? user.id;
+
+      const newExpense = {
+        user_id: userId,
+        monto: Number(this.nuevoGastoMonto),
+        descripción: this.nuevoGastoConcepto,
+        categoría: this.nuevoGastoCategoria,
+        created_at: new Date().toISOString()
+      };
+
+      const { data, error } = await this.sb.client.from('expenses').insert(newExpense).select().single();
+      if (!error && data) {
+        this.gastos = [data, ...(this.gastos || [])].slice(0, 5); // Mantener UI limit
+        this.totalGastadoMes += data.monto;
+      }
+    } catch (_) {}
+
+    this.isGastoModalOpen.set(false);
+    this.nuevoGastoConcepto = '';
+    this.nuevoGastoMonto = '';
+    this.nuevoGastoCategoria = 'general';
   }
 
   setDomain(domain: string): void {

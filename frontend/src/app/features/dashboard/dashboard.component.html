@@ -181,7 +181,7 @@
                 <lucide-icon [name]="TrendingUp" class="w-4 h-4 text-aurora-500 flex-shrink-0"></lucide-icon>
                 <span>Usá el bot de Telegram para registrar gastos</span>
               </div>
-              <button class="premium-button flex items-center justify-center space-x-2 w-full sm:w-auto">
+              <button (click)="isGastoModalOpen.set(true)" class="premium-button flex items-center justify-center space-x-2 w-full sm:w-auto">
                 <lucide-icon [name]="Plus" class="w-4 h-4"></lucide-icon>
                 <span>Nuevo Gasto</span>
               </button>
@@ -519,6 +519,52 @@
         </button>
         <button (click)="crearNuevaMeta()" [disabled]="!nuevaMetaNombre || !nuevaMetaMonto" class="flex-1 py-3 text-sm font-bold text-white bg-aurora-600 hover:bg-aurora-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors cursor-pointer shadow-glow">
           Crear Meta
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ══ EXPENSE CREATION MODAL ══ -->
+@if (isGastoModalOpen()) {
+  <div class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" (click)="isGastoModalOpen.set(false)"></div>
+    <div class="relative glass-card w-full max-w-md p-6 border border-red-500/10 shadow-2xl animate-fade-in-up">
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="text-xl font-bold font-display text-white">Nuevo Gasto</h3>
+        <button (click)="isGastoModalOpen.set(false)" class="text-silk-500 hover:text-white transition-colors cursor-pointer">
+          <lucide-icon [name]="X" class="w-5 h-5"></lucide-icon>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs uppercase tracking-widest text-silk-500 mb-1.5 font-bold">Concepto (Ej. Supermercado, Cine)</label>
+          <input type="text" [(ngModel)]="nuevoGastoConcepto" placeholder="¿En qué gastaste?" class="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-400/50 transition-colors">
+        </div>
+        <div>
+          <label class="block text-xs uppercase tracking-widest text-silk-500 mb-1.5 font-bold">Monto</label>
+          <input type="number" [(ngModel)]="nuevoGastoMonto" placeholder="Ej: 50" class="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-400/50 transition-colors">
+        </div>
+        <div>
+          <label class="block text-xs uppercase tracking-widest text-silk-500 mb-1.5 font-bold">Categoría</label>
+          <select [(ngModel)]="nuevoGastoCategoria" class="w-full bg-onyx-900 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-400/50 transition-colors">
+            <option value="comida">Comida</option>
+            <option value="transporte">Transporte</option>
+            <option value="servicios">Servicios</option>
+            <option value="entretenimiento">Entretenimiento</option>
+            <option value="salud">Salud</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mt-8 flex gap-3">
+        <button (click)="isGastoModalOpen.set(false)" class="flex-1 py-3 text-sm font-bold text-silk-300 bg-white/5 hover:bg-white/10 rounded-xl transition-colors cursor-pointer">
+          Cancelar
+        </button>
+        <button (click)="crearNuevoGasto()" [disabled]="!nuevoGastoConcepto || !nuevoGastoMonto" class="flex-1 py-3 text-sm font-bold text-white bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors cursor-pointer shadow-glow">
+          Registrar Gasto
         </button>
       </div>
     </div>
