@@ -18,6 +18,8 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock,
+  Menu,
+  X,
 } from 'lucide-angular';
 import { AuthService } from '../../services/auth.service';
 import { SupabaseService } from '../../services/supabase.service';
@@ -50,8 +52,19 @@ export class DashboardComponent implements OnInit {
   readonly AlertTriangle = AlertTriangle;
   readonly CheckCircle = CheckCircle;
   readonly Clock = Clock;
+  readonly Menu = Menu;
+  readonly X = X;
 
   activeDomain = 'dashboard';
+  sidebarOpen = signal(false);
+
+  toggleSidebar(): void {
+    this.sidebarOpen.update(v => !v);
+  }
+
+  closeSidebar(): void {
+    this.sidebarOpen.set(false);
+  }
 
   // ── Financial ──
   gastos: any[] = [];
@@ -215,6 +228,7 @@ export class DashboardComponent implements OnInit {
   }
 
   setDomain(domain: string): void {
+    this.closeSidebar();
     if (domain === 'metanoia') {
       this.router.navigate(['/psicologia']);
     } else if (domain === 'legal') {

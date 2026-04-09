@@ -12,12 +12,14 @@
     @apply bg-onyx-900 text-silk-400 font-body antialiased selection:bg-aurora-500/30 selection:text-white;
     margin: 0;
     overflow-x: hidden;
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
   h1, h2, h3, h4, h5, h6 {
     @apply font-display font-bold text-white tracking-tight;
   }
 }
+
 
 @layer components {
   .glass-card {

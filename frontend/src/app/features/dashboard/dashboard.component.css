@@ -1,6 +1,21 @@
-/* Las dash-card arrancaron visibles (no opacity:0)
-   GSAP hace fromTo() desde opacity:0 → opacity:1
-   Si GSAP falla, la class de fallback asegura visibilidad */
+/* Dash cards: GSAP hace fromTo(opacity:0 → 1). Fallback visible. */
 .dash-card {
-  opacity: 1; /* Fallback: siempre visible si GSAP no corre */
+  opacity: 1;
+}
+
+/* Safe area bottom para iPhone notch / home indicator */
+.safe-area-pb {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+/*
+  En desktop (lg+): el aside siempre está visible y es static.
+  Anulamos cualquier transform que Angular haya aplicado via signal.
+*/
+@media (min-width: 1024px) {
+  aside {
+    transform: translateX(0) !important;
+    position: static !important;
+    width: 16rem !important; /* w-64 */
+  }
 }

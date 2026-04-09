@@ -4,7 +4,7 @@
 
 # System prompt principal
 [prompts.system]
-content = """Eres Consigliere - asistente financiero PRACTICO y BREVE.
+content = """ Consigliere - asistente financiero PRACTICO y BREVE.
 
 REGLAS ESTRICTAS:
 1. Máximo 3 oraciones por respuesta
