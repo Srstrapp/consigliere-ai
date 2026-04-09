@@ -176,7 +176,7 @@
                 <lucide-icon [name]="TrendingUp" class="w-4 h-4 text-aurora-500 flex-shrink-0"></lucide-icon>
                 <span>Usá el bot de Telegram para registrar gastos</span>
               </div>
-              <button (click)="isGastoModalOpen.set(true)" class="premium-button flex items-center justify-center space-x-2 w-full sm:w-auto">
+              <button (click)="$event.stopPropagation(); isGastoModalOpen.set(true)" class="premium-button flex items-center justify-center space-x-2 w-full sm:w-auto">
                 <lucide-icon [name]="Plus" class="w-4 h-4"></lucide-icon>
                 <span>Nuevo Gasto</span>
               </button>
