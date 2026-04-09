@@ -344,10 +344,10 @@ Una vez registrado, podés escribirme cosas como:
             await bot.send_message(chat_id=update_obj.message.chat_id, text=respuesta)
             return {"status": "ok"}
         
-        # Si es usuario nuevo y no tiene auth, recordarle el registro
+        # Si el usuario no tiene auth_user_id, recordarle el registro (Protocolo de Seguridad)
         tiene_auth = db_user.get("auth_user_id") is not None if db_user else False
         if (es_nuevo or not tiene_auth) and len(mensaje) > 5:
-            respuesta = "¡Veo que todavía no te registraste! 😅 Para que pueda guardar tus gastos y ayudarte con tus metas, pasate por acá:\n\nhttps://consigliere.up.railway.app/dashboard\n\n¡Es un toque y ya quedamos conectados!"
+            respuesta = "¡Veo que todavía no te registraste! 😅 Para que pueda guardar tus registros de forma segura y ayudarte con tus metas, pasate por acá:\n\nhttps://consigliere.up.railway.app/dashboard\n\n¡Es un toque y ya quedamos conectados!"
             
             from telegram import Bot
             bot = Bot(token=settings.telegram_bot_token)
