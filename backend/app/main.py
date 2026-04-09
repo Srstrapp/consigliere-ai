@@ -324,7 +324,7 @@ async def telegram_webhook(update: dict):
             # Generar token de login para el Magic Link
             from .services.database import LoginTokenRepository
             token = LoginTokenRepository.create(user_id_telegram)
-            magic_link = f"https://consigliere-ai.up.railway.app/login?token={token}"
+            magic_link = f"https://consigliere.up.railway.app/login?token={token}"
 
             if es_nuevo or not db_user.get("auth_user_id"):
                 respuesta = f"""¡Hola! Soy Consigliere, tu asistente personal para poner en orden tus finanzas y bienestar. 👋
