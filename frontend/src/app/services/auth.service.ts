@@ -24,7 +24,7 @@ export class AuthService {
 
   readonly isAuthenticated = computed(() => !!this.session());
   readonly displayName = computed(
-    () => this.profile()?.nombre ?? this.user()?.email?.split('@')[0] ?? 'Usuario'
+    () => this.profile()?.nombre ?? this.user()?.email?.split('@')[0] ?? 'Usuario',
   );
   readonly initials = computed(() => {
     const name = this.profile()?.nombre ?? this.user()?.email ?? '?';
@@ -123,16 +123,21 @@ export class AuthService {
     if (error) throw error;
   }
 
-  async signUp(email: string, password: string, nombre: string, telegramId?: string): Promise<void> {
-    const { data, error } = await this.sb.client.auth.signUp({ 
-      email, 
+  async signUp(
+    email: string,
+    password: string,
+    nombre: string,
+    telegramId?: string,
+  ): Promise<void> {
+    const { data, error } = await this.sb.client.auth.signUp({
+      email,
       password,
       options: {
         data: {
           full_name: nombre,
-          telegram_id: telegramId
-        }
-      }
+          telegram_id: telegramId,
+        },
+      },
     });
     if (error) throw error;
 
@@ -142,19 +147,20 @@ export class AuthService {
     if (data.user) {
       try {
         console.log('📝 Sincronizando registro en public.users para:', data.user.id);
-        const { error: upsertError } = await this.sb.client
-          .from('users')
-          .upsert({
+        const { error: upsertError } = await this.sb.client.from('users').upsert(
+          {
             auth_user_id: data.user.id,
             email: email.toLowerCase().trim(),
             nombre: nombre,
             telegram_id: telegramId ? parseInt(telegramId) : null,
-            presupuesto_mensual: 1000
-          }, { 
+            presupuesto_mensual: 0,
+          },
+          {
             onConflict: 'email',
-            ignoreDuplicates: false 
-          });
-        
+            ignoreDuplicates: false,
+          },
+        );
+
         if (upsertError) {
           console.error('⚠️ Error al crear registro en public.users:', upsertError);
           // Intentamos una segunda vez por telegram_id si el email falló
@@ -179,6 +185,9 @@ export class AuthService {
 
   /** Para login desde magic link del bot: establece sesión con tokens ya validados */
   async setSessionFromToken(accessToken: string, refreshToken: string): Promise<void> {
-    await this.sb.client.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+    await this.sb.client.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
   }
 }

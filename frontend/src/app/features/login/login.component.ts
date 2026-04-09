@@ -72,16 +72,37 @@ export class LoginComponent implements OnInit {
     if (!this.telegramToken) return '';
     
     try {
+      this.loading.set(true);
       console.log('🔍 Validando token de Telegram:', this.telegramToken);
       const { environment } = await import('../../../environments/environment');
-      const res = await fetch(`${environment.apiUrl}/auth/token?token=${this.telegramToken}`);
+      
+      // Forzamos el uso de la URL absoluta del environment
+      const url = `${environment.apiUrl}/auth/token?token=${this.telegramToken}`;
+      console.log('📡 Llamando a:', url);
+
+      const res = await fetch(url);
+      
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error('❌ Error en respuesta del servidor:', errText);
+        this.error.set(`Error de validación: ${res.status}. El link puede haber expirado.`);
+        return '';
+      }
+
       const data = await res.json();
       console.log('📦 Respuesta de validación de token:', data);
+      
       if (data.success) {
+        console.log('✅ Token validado para Telegram ID:', data.telegram_id);
         return data.telegram_id.toString();
+      } else {
+        this.error.set('El token de Telegram no es válido. Pedí uno nuevo.');
       }
     } catch (e) {
-      console.error('❌ Error al validar token de Telegram:', e);
+      console.error('❌ Error de red al validar token:', e);
+      this.error.set('No se pudo conectar con el servidor para validar el token.');
+    } finally {
+      this.loading.set(false);
     }
     return '';
   }
@@ -90,15 +111,21 @@ export class LoginComponent implements OnInit {
     if (!this.telegramId) return;
     
     try {
-      await fetch('/api/auth/link-telegram', {
+      const session = this.auth.session();
+      if (!session) return;
+
+      const { environment } = await import('../../../environments/environment');
+      await fetch(`${environment.apiUrl}/auth/link-telegram`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({ telegram_id: this.telegramId }),
       });
+      console.log('✅ Vinculación de Telegram completada exitosamente');
     } catch (e) {
-      console.error('Error linking telegram:', e);
+      console.error('❌ Error vinculando telegram:', e);
     }
   }
 
@@ -136,12 +163,21 @@ export class LoginComponent implements OnInit {
         }
         this.router.navigate(['/dashboard']);
       } else {
-        // En el registro pasamos el telegramId directamente para que el Trigger lo una
+        // En el registro pasamos el telegramId directamente
         await this.auth.signUp(this.email, this.password, this.nombre, this.telegramId);
         
-        this.error.set('');
-        this.mode.set('login');
-        this.error.set('✅ Cuenta creada. Iniciá sesión.');
+        // LLAMADA CLAVE: Después del registro, forzamos la vinculación desde el backend 
+        // para asegurar que no haya duplicados (Nuclear Option)
+        if (this.telegramId) {
+          // Esperamos un segundo para que Supabase termine de crear el user auth
+          setTimeout(async () => {
+            await this.linkTelegramAccount();
+            this.router.navigate(['/dashboard']);
+          }, 1500);
+        } else {
+          this.mode.set('login');
+          this.error.set('✅ Cuenta creada. Iniciá sesión.');
+        }
       }
     } catch (err: any) {
       const msg = err?.message ?? 'Error desconocido';

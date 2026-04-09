@@ -59,28 +59,38 @@ async def link_telegram_auth(request: Request):
             raise HTTPException(status_code=401, detail="No autorizado")
         
         settings = get_settings()
-        supabase = create_client(settings.supabase_url, settings.supabase_anon_key)
+        # Usamos service instance para bypass RLS y asegurar limpieza de duplicados
+        from ..services.database import SupabaseClient
+        supabase = SupabaseClient.get_service_instance()
         
-        # Verificar el token de Supabase Auth
-        user_response = supabase.auth.get_user(auth_header.split(" ")[1] if " " in auth_header else auth_header)
+        # Verificar el usuario (esto sí lo hacemos con el token del usuario para seguridad)
+        auth_client = SupabaseClient.get_instance()
+        user_response = auth_client.auth.get_user(auth_header.split(" ")[1] if " " in auth_header else auth_header)
+        
         if not user_response.user:
             raise HTTPException(status_code=401, detail="Sesión inválida")
         
         auth_user_id = user_response.user.id
         
         # Vincular el auth_user_id con el usuario de Telegram
-        # MERGE: Si el trigger creó una fila web inútil, actualizamos la de telegram y borramos la web
+        # MERGE Atómico:
         db_user_telegram = UserRepository.get_by_telegram(int(telegram_id))
         
         if db_user_telegram:
-            # Transferir el auth_user_id a la cuenta de telegram
+            # Transferir el auth_user_id a la cuenta de telegram existente
             supabase.table("users").update({
                 "auth_user_id": auth_user_id,
                 "email": user_response.user.email
             }).eq("id", db_user_telegram["id"]).execute()
             
-            # Borrar la fila huérfana que creó el trigger (si existe y es diferente)
+            # Limpiar: Borrar cualquier fila duplicada que pudiera haber creado un trigger residual
+            # (con el service_role esto no falla por RLS)
             supabase.table("users").delete().eq("auth_user_id", auth_user_id).neq("id", db_user_telegram["id"]).execute()
+        else:
+            # Si no existe en telegram, simplemente nos aseguramos de que el registro web tenga los datos
+            supabase.table("users").update({
+                "nombre": user_response.user.user_metadata.get("full_name", "Usuario")
+            }).eq("auth_user_id", auth_user_id).execute()
 
         return {"success": True, "message": "Cuentas vinculadas"}
         
