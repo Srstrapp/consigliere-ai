@@ -1,6 +1,6 @@
 export const environment = {
   production: true,
-  apiUrl: process.env['API_URL'] || 'https://tu-backend.railway.app/api',
+  apiUrl: 'https://consigliere.up.railway.app/api',
   supabase: {
     url: 'https://xbcnbuioiugnlkwkvrzi.supabase.co',
     anonKey:

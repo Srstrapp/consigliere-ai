@@ -163,21 +163,11 @@ export class LoginComponent implements OnInit {
         }
         this.router.navigate(['/dashboard']);
       } else {
-        // En el registro pasamos el telegramId directamente
         await this.auth.signUp(this.email, this.password, this.nombre, this.telegramId);
         
-        // LLAMADA CLAVE: Después del registro, forzamos la vinculación desde el backend 
-        // para asegurar que no haya duplicados (Nuclear Option)
-        if (this.telegramId) {
-          // Esperamos un segundo para que Supabase termine de crear el user auth
-          setTimeout(async () => {
-            await this.linkTelegramAccount();
-            this.router.navigate(['/dashboard']);
-          }, 1500);
-        } else {
-          this.mode.set('login');
-          this.error.set('✅ Cuenta creada. Iniciá sesión.');
-        }
+        // El vínculo se hará automáticamente en el servidor vía metadatos + trigger
+        this.mode.set('login');
+        this.error.set('✅ Registro exitoso. Iniciá sesión para activar el vínculo.');
       }
     } catch (err: any) {
       const msg = err?.message ?? 'Error desconocido';

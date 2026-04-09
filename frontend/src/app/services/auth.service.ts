@@ -141,41 +141,8 @@ export class AuthService {
     });
     if (error) throw error;
 
-    // Si el registro fue exitoso y tenemos sesión (o el usuario fue creado)
-    // intentamos crear/actualizar el registro en public.users manualmente
-    // Esto reemplaza al Database Trigger que estaba fallando.
     if (data.user) {
-      try {
-        console.log('📝 Sincronizando registro en public.users para:', data.user.id);
-        const { error: upsertError } = await this.sb.client.from('users').upsert(
-          {
-            auth_user_id: data.user.id,
-            email: email.toLowerCase().trim(),
-            nombre: nombre,
-            telegram_id: telegramId ? parseInt(telegramId) : null,
-            presupuesto_mensual: 0,
-          },
-          {
-            onConflict: 'email',
-            ignoreDuplicates: false,
-          },
-        );
-
-        if (upsertError) {
-          console.error('⚠️ Error al crear registro en public.users:', upsertError);
-          // Intentamos una segunda vez por telegram_id si el email falló
-          if (telegramId) {
-            await this.sb.client
-              .from('users')
-              .update({ auth_user_id: data.user.id })
-              .eq('telegram_id', parseInt(telegramId));
-          }
-        } else {
-          console.log('✅ Registro sincronizado correctamente.');
-        }
-      } catch (err) {
-        console.error('❌ Error crítico en sincronización:', err);
-      }
+      console.log('✅ Registro completado. El servidor unificará la cuenta automáticamente.');
     }
   }
 
