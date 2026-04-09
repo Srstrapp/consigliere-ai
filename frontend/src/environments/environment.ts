@@ -1,6 +1,6 @@
 export const environment = {
   production: false,
-  apiUrl: 'https://consigliere.up.railway.app/api',
+  apiUrl: 'https://consigliere-ai.up.railway.app/api',
   supabase: {
     url: 'https://xbcnbuioiugnlkwkvrzi.supabase.co',
     anonKey:
